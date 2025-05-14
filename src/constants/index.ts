@@ -17,6 +17,8 @@ export const COLORS = {
   glassBorder: 'rgba(255, 255, 255, 0.3)',
   glassShadow: 'rgba(0, 0, 0, 0.1)',
   background: '#F5F6FA',
+  text: '#2D3436',
+  border: '#E5E5E5',
   gradient: {
     primary: ['#6C5CE7', '#A8A4E6'] as const,
     secondary: ['#A8A4E6', '#6C5CE7'] as const,
@@ -39,6 +41,16 @@ export const SIZES = {
   medium: 16,
   large: 20,
   extraLarge: 28,
+  padding: 16,
+  radius: 12,
+  h1: 32,
+  h2: 24,
+  h3: 20,
+  h4: 16,
+  body1: 16,
+  body2: 14,
+  body3: 12,
+  body4: 10,
 };
 
 export const SHADOWS = {

@@ -61,9 +61,9 @@ yarn-error.log
 dist/
 web-build/
 
-# Local env files
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local 
+# Оставляем .env файлы для общего доступа к базе данных
+# .env
+# .env.local
+# .env.development.local
+# .env.test.local
+# .env.production.local 

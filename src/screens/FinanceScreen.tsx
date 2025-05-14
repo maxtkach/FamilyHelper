@@ -17,105 +17,164 @@ import { COLORS, SIZES, SHADOWS } from '../constants';
 import { useApp } from '../context/AppContext';
 import TransactionStats from '../components/TransactionStats';
 import ExpensesChart from '../components/ExpensesChart';
-import { Task } from '../types';
+import { Task, BudgetCategory } from '../types';
 
-const FinanceScreen: React.FC = () => {
-  const { budget, updateBudget, tasks, allocateTaskBudget } = useApp();
+const BudgetCategoryCard: React.FC<{
+  category: BudgetCategory;
+  onUpdate: (id: string, updates: Partial<BudgetCategory>) => void;
+  onDelete: (id: string) => void;
+}> = ({ category, onUpdate, onDelete }) => {
   const [isEditing, setIsEditing] = useState(false);
-  const [newBudget, setNewBudget] = useState(budget.totalBudget.toString());
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-  const [allocateAmount, setAllocateAmount] = useState('');
-  const [showAllocateModal, setShowAllocateModal] = useState(false);
-  
-  const addButtonScale = useRef(new Animated.Value(1)).current;
-  const cardScale = useRef(new Animated.Value(1)).current;
+  const [editedBudget, setEditedBudget] = useState(category.budget.toString());
 
-  const animateButton = () => {
-    Animated.sequence([
-      Animated.timing(addButtonScale, {
-        toValue: 0.9,
-        duration: 100,
-        useNativeDriver: true,
-      }),
-      Animated.timing(addButtonScale, {
-        toValue: 1,
-        duration: 100,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  };
-
-  const animateCard = () => {
-    Animated.sequence([
-      Animated.timing(cardScale, {
-        toValue: 0.95,
-        duration: 100,
-        useNativeDriver: true,
-      }),
-      Animated.timing(cardScale, {
-        toValue: 1,
-        duration: 100,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  };
-
-  const handleAddBudget = () => {
-    animateButton();
-    setIsEditing(true);
-  };
-
-  const handleSaveBudget = () => {
-    const amount = parseFloat(newBudget);
+  const handleSave = () => {
+    const amount = parseFloat(editedBudget);
     if (isNaN(amount) || amount < 0) {
       Alert.alert('Помилка', 'Будь ласка, введіть коректну суму');
       return;
     }
-    updateBudget({ totalBudget: amount });
+    onUpdate(category.id, { budget: amount });
     setIsEditing(false);
   };
 
-  const handleAllocateBudget = () => {
-    if (!selectedTask) return;
-    
-    const amount = parseFloat(allocateAmount);
+  const progress = (category.spent / category.budget) * 100;
+
+  return (
+    <View style={styles.categoryCard}>
+      <View style={styles.categoryHeader}>
+        <View style={styles.categoryTitleContainer}>
+          <MaterialCommunityIcons 
+            name={category.icon as any} 
+            size={24} 
+            color={category.color} 
+          />
+          <Text style={styles.categoryTitle}>{category.name}</Text>
+        </View>
+        <TouchableOpacity onPress={() => onDelete(category.id)}>
+          <MaterialCommunityIcons name="delete" size={24} color={COLORS.danger} />
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.categoryContent}>
+        {isEditing ? (
+          <View style={styles.editContainer}>
+            <TextInput
+              style={styles.input}
+              value={editedBudget}
+              onChangeText={setEditedBudget}
+              keyboardType="numeric"
+              placeholder="Введіть суму"
+              placeholderTextColor={COLORS.gray}
+            />
+            <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
+              <Text style={styles.saveButtonText}>Зберегти</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <TouchableOpacity onPress={() => setIsEditing(true)}>
+            <Text style={styles.categoryBudget}>
+              {new Intl.NumberFormat('uk-UA', {
+                style: 'currency',
+                currency: 'UAH',
+                minimumFractionDigits: 0,
+              }).format(category.budget)}
+            </Text>
+          </TouchableOpacity>
+        )}
+
+        <View style={styles.progressContainer}>
+          <View style={styles.progressBar}>
+            <View 
+              style={[
+                styles.progressFill,
+                { 
+                  width: `${Math.min(progress, 100)}%`,
+                  backgroundColor: progress > 100 ? COLORS.danger : COLORS.success
+                }
+              ]}
+            />
+          </View>
+          <Text style={styles.progressText}>
+            {`${Math.round(progress)}% використано`}
+          </Text>
+        </View>
+
+        <View style={styles.categoryStats}>
+          <View style={styles.statItem}>
+            <Text style={styles.statLabel}>Витрачено</Text>
+            <Text style={styles.statValue}>
+              {new Intl.NumberFormat('uk-UA', {
+                style: 'currency',
+                currency: 'UAH',
+                minimumFractionDigits: 0,
+              }).format(category.spent)}
+            </Text>
+          </View>
+          <View style={styles.statItem}>
+            <Text style={styles.statLabel}>Залишилось</Text>
+            <Text style={[
+              styles.statValue,
+              { color: category.budget - category.spent < 0 ? COLORS.danger : COLORS.success }
+            ]}>
+              {new Intl.NumberFormat('uk-UA', {
+                style: 'currency',
+                currency: 'UAH',
+                minimumFractionDigits: 0,
+              }).format(category.budget - category.spent)}
+            </Text>
+          </View>
+        </View>
+      </View>
+    </View>
+  );
+};
+
+const FinanceScreen: React.FC = () => {
+  const { 
+    budget, 
+    updateBudget, 
+    addBudgetCategory,
+    updateBudgetCategory,
+    deleteBudgetCategory
+  } = useApp();
+  
+  const [isEditing, setIsEditing] = useState(false);
+  const [newBudget, setNewBudget] = useState(budget.totalBudget.toString());
+  const [showAddCategory, setShowAddCategory] = useState(false);
+  const [newCategory, setNewCategory] = useState({
+    name: '',
+    budget: '',
+    icon: 'folder' as const,
+    color: COLORS.primary
+  });
+  
+  const addButtonScale = useRef(new Animated.Value(1)).current;
+  const cardScale = useRef(new Animated.Value(1)).current;
+
+  const handleAddCategory = () => {
+    if (!newCategory.name || !newCategory.budget) {
+      Alert.alert('Помилка', 'Будь ласка, заповніть усі поля');
+      return;
+    }
+
+    const amount = parseFloat(newCategory.budget);
     if (isNaN(amount) || amount < 0) {
       Alert.alert('Помилка', 'Будь ласка, введіть коректну суму');
       return;
     }
 
     try {
-      allocateTaskBudget(selectedTask.id, amount);
-      setShowAllocateModal(false);
-      setSelectedTask(null);
-      setAllocateAmount('');
-      Alert.alert('Успіх', 'Бюджет успішно розподілено');
+      addBudgetCategory({
+        name: newCategory.name,
+        budget: amount,
+        icon: newCategory.icon,
+        color: newCategory.color
+      });
+      setShowAddCategory(false);
+      setNewCategory({ name: '', budget: '', icon: 'folder' as const, color: COLORS.primary });
     } catch (error) {
-      Alert.alert('Помилка', error instanceof Error ? error.message : 'Не вдалося розподілити бюджет');
+      Alert.alert('Помилка', error instanceof Error ? error.message : 'Не вдалося додати категорію');
     }
-  };
-
-  const formatMoney = (amount: number) => {
-    return new Intl.NumberFormat('uk-UA', {
-      style: 'currency',
-      currency: 'UAH',
-      minimumFractionDigits: 0,
-    }).format(amount);
-  };
-
-  const calculateProgress = (allocated: number, total: number) => {
-    return total > 0 ? (allocated / total) * 100 : 0;
-  };
-
-  const chartData = {
-    labels: ['Січ', 'Лют', 'Бер', 'Кві', 'Тра', 'Чер'],
-    datasets: [
-      {
-        data: [20, 45, 28, 80, 99, 43],
-        color: (opacity = 1) => `rgba(108, 92, 231, ${opacity})`,
-        strokeWidth: 2,
-      },
-    ],
   };
 
   return (
@@ -125,21 +184,18 @@ const FinanceScreen: React.FC = () => {
         style={styles.header}
       >
         <Text style={styles.title}>Бюджет</Text>
-        <Animated.View style={{ transform: [{ scale: addButtonScale }] }}>
+        <View style={styles.headerButtons}>
           <TouchableOpacity
-            style={styles.addButton}
-            onPress={handleAddBudget}
-            activeOpacity={0.8}
+            style={[styles.iconButton, styles.addButton]}
+            onPress={() => setShowAddCategory(true)}
           >
             <MaterialCommunityIcons name="plus" size={24} color={COLORS.white} />
           </TouchableOpacity>
-        </Animated.View>
+        </View>
       </LinearGradient>
 
       <ScrollView style={styles.content}>
-        <Animated.View 
-          style={[styles.budgetCard, { transform: [{ scale: cardScale }] }]}
-        >
+        <View style={styles.budgetCard}>
           <View style={styles.budgetHeader}>
             <Text style={styles.budgetTitle}>Загальний бюджет</Text>
             {isEditing ? (
@@ -152,25 +208,35 @@ const FinanceScreen: React.FC = () => {
                   placeholder="Введіть суму"
                   placeholderTextColor={COLORS.gray}
                 />
-                <TouchableOpacity
-                  style={styles.saveButton}
-                  onPress={handleSaveBudget}
-                >
-                  <Text style={styles.saveButtonText}>Зберегти</Text>
-                </TouchableOpacity>
               </View>
             ) : (
-              <Text style={styles.budgetAmount}>
-                {formatMoney(budget.totalBudget)}
-              </Text>
+              <TouchableOpacity onPress={() => setIsEditing(true)}>
+                <Text style={styles.budgetAmount}>
+                  {new Intl.NumberFormat('uk-UA', {
+                    style: 'currency',
+                    currency: 'UAH',
+                    minimumFractionDigits: 0,
+                  }).format(budget.totalBudget)}
+                </Text>
+              </TouchableOpacity>
             )}
           </View>
-          <View style={styles.progressContainer}>
+
+          <View style={styles.budgetProgress}>
+            <View style={styles.progressInfo}>
+              <Text style={styles.progressLabel}>Використано бюджету:</Text>
+              <Text style={styles.progressValue}>
+                {Math.round((budget.allocatedBudget / budget.totalBudget) * 100)}%
+              </Text>
+            </View>
             <View style={styles.progressBar}>
               <View 
                 style={[
                   styles.progressFill,
-                  { width: `${calculateProgress(budget.allocatedBudget, budget.totalBudget)}%` }
+                  { 
+                    width: `${Math.min((budget.allocatedBudget / budget.totalBudget) * 100, 100)}%`,
+                    backgroundColor: budget.allocatedBudget > budget.totalBudget ? COLORS.danger : COLORS.success
+                  }
                 ]}
               />
             </View>
@@ -178,7 +244,11 @@ const FinanceScreen: React.FC = () => {
               <View style={styles.statItem}>
                 <Text style={styles.statLabel}>Розподілено</Text>
                 <Text style={styles.statValue}>
-                  {formatMoney(budget.allocatedBudget)}
+                  {new Intl.NumberFormat('uk-UA', {
+                    style: 'currency',
+                    currency: 'UAH',
+                    minimumFractionDigits: 0,
+                  }).format(budget.allocatedBudget)}
                 </Text>
               </View>
               <View style={styles.statItem}>
@@ -187,136 +257,103 @@ const FinanceScreen: React.FC = () => {
                   styles.statValue,
                   { color: budget.availableBudget < 0 ? COLORS.danger : COLORS.success }
                 ]}>
-                  {formatMoney(budget.availableBudget)}
+                  {new Intl.NumberFormat('uk-UA', {
+                    style: 'currency',
+                    currency: 'UAH',
+                    minimumFractionDigits: 0,
+                  }).format(budget.availableBudget)}
                 </Text>
               </View>
             </View>
           </View>
-        </Animated.View>
 
-        <View style={styles.tasksSection}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Розподіл бюджету</Text>
-            <TouchableOpacity 
-              style={styles.helpButton}
-              onPress={() => Alert.alert(
-                'Як це працює?',
-                'Натисніть на завдання, щоб розподілити бюджет. Ви можете виділити кошти тільки з доступного бюджету. При виконанні завдання з бюджетом, учасники отримають винагороду.'
-              )}
-            >
-              <MaterialCommunityIcons name="help-circle-outline" size={24} color={COLORS.primary} />
-            </TouchableOpacity>
-          </View>
-
-          {tasks.map((task) => (
-            <TouchableOpacity
-              key={task.id}
-              onPress={() => {
-                animateCard();
-                setSelectedTask(task);
-                setAllocateAmount(task.budget?.toString() || '');
-                setShowAllocateModal(true);
-              }}
-              activeOpacity={0.8}
-            >
-              <View style={styles.taskCard}>
-                <View style={styles.taskIcon}>
-                  <MaterialCommunityIcons
-                    name={task.completed ? "check-circle" : "clock-outline"}
-                    size={24}
-                    color={task.completed ? COLORS.success : COLORS.primary}
-                  />
-                </View>
-                <View style={styles.taskInfo}>
-                  <Text style={styles.taskTitle}>{task.title}</Text>
-                  <Text style={styles.taskDescription} numberOfLines={1}>
-                    {task.description}
-                  </Text>
-                  {task.budget ? (
-                    <Text style={styles.taskBudget}>
-                      Бюджет: {formatMoney(task.budget)}
-                    </Text>
-                  ) : (
-                    <Text style={styles.taskNoBudget}>
-                      Бюджет не призначено
-                    </Text>
-                  )}
-                </View>
-                <MaterialCommunityIcons
-                  name="cash-plus"
-                  size={24}
-                  color={COLORS.primary}
-                />
-              </View>
-            </TouchableOpacity>
-          ))}
-
-          {tasks.length === 0 && (
-            <View style={styles.emptyState}>
-              <MaterialCommunityIcons name="clipboard-text-outline" size={48} color={COLORS.gray} />
-              <Text style={styles.emptyStateText}>Немає доступних завдань</Text>
+          {isEditing && (
+            <View style={styles.editButtons}>
+              <TouchableOpacity
+                style={[styles.editButton, styles.cancelButton]}
+                onPress={() => {
+                  setNewBudget(budget.totalBudget.toString());
+                  setIsEditing(false);
+                }}
+              >
+                <Text style={styles.editButtonText}>Скасувати</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.editButton, styles.saveButton]}
+                onPress={async () => {
+                  const amount = parseFloat(newBudget);
+                  if (!isNaN(amount) && amount >= 0) {
+                    try {
+                      console.log('Сохраняем бюджет:', amount);
+                      await updateBudget({ totalBudget: amount });
+                      setIsEditing(false);
+                    } catch (error) {
+                      console.error('Ошибка при сохранении бюджета:', error);
+                      // Ошибка уже обработана в updateBudget
+                    }
+                  } else {
+                    Alert.alert('Помилка', 'Будь ласка, введіть коректну суму');
+                  }
+                }}
+              >
+                <Text style={styles.editButtonText}>Зберегти</Text>
+              </TouchableOpacity>
             </View>
           )}
+        </View>
+
+        <View style={styles.categoriesSection}>
+          <Text style={styles.sectionTitle}>Категорії витрат</Text>
+          {budget.categories.map(category => (
+            <BudgetCategoryCard
+              key={category.id}
+              category={category}
+              onUpdate={updateBudgetCategory}
+              onDelete={deleteBudgetCategory}
+            />
+          ))}
         </View>
       </ScrollView>
 
       <Modal
-        visible={showAllocateModal}
-        transparent
+        visible={showAddCategory}
         animationType="slide"
-        onRequestClose={() => setShowAllocateModal(false)}
+        transparent={true}
+        onRequestClose={() => setShowAddCategory(false)}
       >
-        <View style={styles.modalOverlay}>
+        <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>
-              Розподіл бюджету
-            </Text>
-            <Text style={styles.modalTaskTitle}>
-              {selectedTask?.title}
-            </Text>
+            <Text style={styles.modalTitle}>Нова категорія</Text>
             
-            <View style={styles.modalInfo}>
-              <View style={styles.modalInfoItem}>
-                <Text style={styles.modalInfoLabel}>Поточний бюджет</Text>
-                <Text style={styles.modalInfoValue}>
-                  {formatMoney(selectedTask?.budget || 0)}
-                </Text>
-              </View>
-              <View style={styles.modalInfoItem}>
-                <Text style={styles.modalInfoLabel}>Доступно</Text>
-                <Text style={[
-                  styles.modalInfoValue,
-                  { color: budget.availableBudget < 0 ? COLORS.danger : COLORS.success }
-                ]}>
-                  {formatMoney(budget.availableBudget)}
-                </Text>
-              </View>
-            </View>
-
-            <Text style={styles.inputLabel}>Новий бюджет</Text>
             <TextInput
               style={styles.modalInput}
-              value={allocateAmount}
-              onChangeText={setAllocateAmount}
+              value={newCategory.name}
+              onChangeText={(text) => setNewCategory(prev => ({ ...prev, name: text }))}
+              placeholder="Назва категорії"
+              placeholderTextColor={COLORS.gray}
+            />
+
+            <TextInput
+              style={styles.modalInput}
+              value={newCategory.budget}
+              onChangeText={(text) => setNewCategory(prev => ({ ...prev, budget: text }))}
               keyboardType="numeric"
-              placeholder="Введіть суму"
+              placeholder="Бюджет"
               placeholderTextColor={COLORS.gray}
             />
 
             <View style={styles.modalButtons}>
               <TouchableOpacity
-                style={[styles.modalButton, styles.modalButtonCancel]}
-                onPress={() => setShowAllocateModal(false)}
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => setShowAddCategory(false)}
               >
                 <Text style={styles.modalButtonText}>Скасувати</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.modalButton, styles.modalButtonSave]}
-                onPress={handleAllocateBudget}
+                style={[styles.modalButton, styles.confirmButton]}
+                onPress={handleAddCategory}
               >
-                <Text style={[styles.modalButtonText, { color: COLORS.white }]}>
-                  Зберегти
-                </Text>
+                <Text style={styles.modalButtonText}>Додати</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -335,249 +372,243 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
-    paddingTop: Platform.OS === 'ios' ? 50 : 40,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
+    padding: SIZES.padding,
+    paddingTop: SIZES.padding * 2,
+    borderBottomLeftRadius: SIZES.radius,
+    borderBottomRightRadius: SIZES.radius,
     ...SHADOWS.medium,
   },
-  title: {
-    fontSize: SIZES.extraLarge,
-    fontWeight: 'bold',
-    color: COLORS.white,
+  headerButtons: {
+    flexDirection: 'row',
+    gap: SIZES.base,
   },
-  addButton: {
+  iconButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
   },
+  addButton: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  title: {
+    fontSize: SIZES.h2,
+    color: COLORS.white,
+    fontWeight: 'bold',
+  },
   content: {
     flex: 1,
-    padding: 16,
+    padding: SIZES.padding,
   },
   budgetCard: {
     backgroundColor: COLORS.white,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 20,
+    borderRadius: SIZES.radius,
+    padding: SIZES.padding,
+    marginBottom: SIZES.padding,
     ...SHADOWS.medium,
   },
   budgetHeader: {
-    marginBottom: 16,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SIZES.padding,
   },
   budgetTitle: {
-    fontSize: SIZES.large,
+    fontSize: SIZES.h3,
+    color: COLORS.primary,
     fontWeight: 'bold',
-    color: COLORS.dark,
-    marginBottom: 8,
   },
   budgetAmount: {
-    fontSize: SIZES.extraLarge,
+    fontSize: SIZES.h2,
+    color: COLORS.text,
     fontWeight: 'bold',
-    color: COLORS.primary,
   },
   editContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flex: 1,
+    marginLeft: SIZES.base,
   },
   input: {
-    flex: 1,
-    height: 40,
     borderWidth: 1,
-    borderColor: COLORS.grayLight,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    marginRight: 8,
-    color: COLORS.dark,
+    borderColor: COLORS.border,
+    borderRadius: SIZES.radius,
+    padding: SIZES.base,
+    color: COLORS.text,
+    fontSize: SIZES.h3,
   },
-  saveButton: {
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
+  editButtons: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: SIZES.base,
+    marginTop: SIZES.base,
   },
-  saveButtonText: {
+  editButton: {
+    paddingVertical: SIZES.base,
+    paddingHorizontal: SIZES.padding,
+    borderRadius: SIZES.radius,
+    minWidth: 100,
+    alignItems: 'center',
+  },
+  editButtonText: {
     color: COLORS.white,
-    fontWeight: '500',
+    fontWeight: 'bold',
+    fontSize: SIZES.font,
   },
-  progressContainer: {
-    marginTop: 16,
+  budgetProgress: {
+    marginTop: SIZES.base,
+  },
+  progressInfo: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SIZES.base,
+  },
+  progressLabel: {
+    fontSize: SIZES.font,
+    color: COLORS.gray,
+  },
+  progressValue: {
+    fontSize: SIZES.font,
+    color: COLORS.text,
+    fontWeight: 'bold',
   },
   progressBar: {
     height: 8,
-    backgroundColor: COLORS.grayLight,
+    backgroundColor: COLORS.border,
     borderRadius: 4,
     overflow: 'hidden',
+    marginBottom: SIZES.padding,
   },
   progressFill: {
     height: '100%',
-    backgroundColor: COLORS.primary,
-    borderRadius: 4,
+    backgroundColor: COLORS.success,
   },
   budgetStats: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 12,
+    paddingTop: SIZES.base,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
   },
-  statItem: {
-    alignItems: 'center',
+  categoriesSection: {
+    marginTop: SIZES.padding,
   },
-  statLabel: {
-    fontSize: SIZES.small,
-    color: COLORS.gray,
-    marginBottom: 4,
+  sectionTitle: {
+    fontSize: SIZES.h3,
+    color: COLORS.text,
+    fontWeight: 'bold',
+    marginBottom: SIZES.padding,
   },
-  statValue: {
-    fontSize: SIZES.medium,
-    fontWeight: '500',
-    color: COLORS.dark,
+  categoryCard: {
+    backgroundColor: COLORS.white,
+    borderRadius: SIZES.radius,
+    padding: SIZES.padding,
+    marginBottom: SIZES.padding,
+    ...SHADOWS.medium,
   },
-  tasksSection: {
-    marginTop: 20,
-  },
-  sectionHeader: {
+  categoryHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: SIZES.base,
   },
-  sectionTitle: {
-    fontSize: SIZES.large,
-    fontWeight: 'bold',
-    color: COLORS.dark,
-  },
-  helpButton: {
-    padding: 4,
-  },
-  taskCard: {
+  categoryTitleContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
-    backgroundColor: COLORS.white,
-    borderRadius: 16,
-    marginBottom: 12,
-    ...SHADOWS.light,
+    gap: SIZES.base,
   },
-  taskIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: COLORS.light,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
+  categoryTitle: {
+    fontSize: SIZES.h4,
+    color: COLORS.text,
+    fontWeight: 'bold',
   },
-  taskInfo: {
-    flex: 1,
+  categoryContent: {
+    gap: SIZES.base,
   },
-  taskTitle: {
-    fontSize: SIZES.medium,
-    fontWeight: '500',
-    color: COLORS.dark,
-    marginBottom: 4,
+  categoryBudget: {
+    fontSize: SIZES.h3,
+    color: COLORS.text,
+    fontWeight: 'bold',
   },
-  taskDescription: {
-    fontSize: SIZES.small,
+  progressContainer: {
+    marginVertical: SIZES.base,
+  },
+  progressText: {
+    fontSize: SIZES.body4,
     color: COLORS.gray,
-    marginBottom: 4,
+    marginTop: 4,
   },
-  taskBudget: {
-    fontSize: SIZES.small,
-    color: COLORS.primary,
+  categoryStats: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: SIZES.base,
   },
-  taskNoBudget: {
-    fontSize: SIZES.small,
+  statItem: {
+    alignItems: 'flex-start',
+  },
+  statLabel: {
+    fontSize: SIZES.body4,
     color: COLORS.gray,
-    fontStyle: 'italic',
   },
-  emptyState: {
-    alignItems: 'center',
-    padding: 32,
+  statValue: {
+    fontSize: SIZES.h4,
+    color: COLORS.text,
+    fontWeight: 'bold',
   },
-  emptyStateText: {
-    fontSize: SIZES.medium,
-    color: COLORS.gray,
-    marginTop: 16,
-  },
-  modalOverlay: {
+  modalContainer: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
+    justifyContent: 'center',
+    padding: SIZES.padding,
   },
   modalContent: {
     backgroundColor: COLORS.white,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 24,
-    ...SHADOWS.medium,
+    borderRadius: SIZES.radius,
+    padding: SIZES.padding,
+    gap: SIZES.padding,
   },
   modalTitle: {
-    fontSize: SIZES.large,
+    fontSize: SIZES.h3,
+    color: COLORS.text,
     fontWeight: 'bold',
-    color: COLORS.dark,
-    marginBottom: 8,
-  },
-  modalTaskTitle: {
-    fontSize: SIZES.medium,
-    color: COLORS.primary,
-    marginBottom: 16,
-  },
-  modalInfo: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 24,
-  },
-  modalInfoItem: {
-    alignItems: 'center',
-  },
-  modalInfoLabel: {
-    fontSize: SIZES.small,
-    color: COLORS.gray,
-    marginBottom: 4,
-  },
-  modalInfoValue: {
-    fontSize: SIZES.medium,
-    fontWeight: '500',
-    color: COLORS.dark,
-  },
-  inputLabel: {
-    fontSize: SIZES.small,
-    color: COLORS.gray,
-    marginBottom: 8,
+    textAlign: 'center',
   },
   modalInput: {
-    height: 48,
     borderWidth: 1,
-    borderColor: COLORS.grayLight,
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    fontSize: SIZES.medium,
-    color: COLORS.dark,
-    marginBottom: 24,
+    borderColor: COLORS.border,
+    borderRadius: SIZES.radius,
+    padding: SIZES.padding,
+    color: COLORS.text,
   },
   modalButtons: {
     flexDirection: 'row',
-    gap: 12,
+    justifyContent: 'space-between',
+    gap: SIZES.padding,
   },
   modalButton: {
     flex: 1,
-    height: 48,
-    borderRadius: 8,
-    justifyContent: 'center',
+    padding: SIZES.padding,
+    borderRadius: SIZES.radius,
     alignItems: 'center',
   },
-  modalButtonCancel: {
-    backgroundColor: COLORS.light,
+  cancelButton: {
+    backgroundColor: COLORS.gray,
   },
-  modalButtonSave: {
+  confirmButton: {
     backgroundColor: COLORS.primary,
   },
   modalButtonText: {
-    fontSize: SIZES.medium,
-    fontWeight: '500',
+    color: COLORS.white,
+    fontWeight: 'bold',
+  },
+  saveButton: {
+    backgroundColor: COLORS.primary,
+    padding: SIZES.base,
+    borderRadius: SIZES.radius,
+  },
+  saveButtonText: {
+    color: COLORS.white,
+    fontWeight: 'bold',
   },
 });
 

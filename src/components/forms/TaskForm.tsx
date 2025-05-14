@@ -6,68 +6,80 @@ import {
   TouchableOpacity,
   StyleSheet,
   ScrollView,
+  Platform,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Task } from '../../types';
-import { COLORS, SIZES } from '../../constants';
+import { COLORS, SIZES, FONTS } from '../../constants';
 
-interface TaskFormProps {
-  onSubmit: (task: Omit<Task, 'id'>) => void;
+type TaskFormProps = {
+  onSubmit: (taskData: Omit<Task, 'id' | 'createdAt'>) => void;
   onCancel: () => void;
-  initialValues?: Partial<Task>;
-}
+  initialValues?: Partial<Omit<Task, 'id' | 'createdAt'>>;
+};
 
-const TaskForm: React.FC<TaskFormProps> = ({
-  onSubmit,
-  onCancel,
-  initialValues,
-}) => {
+const TaskForm: React.FC<TaskFormProps> = ({ onSubmit, onCancel, initialValues }) => {
   const [title, setTitle] = useState(initialValues?.title || '');
   const [description, setDescription] = useState(initialValues?.description || '');
-  const [points, setPoints] = useState(initialValues?.points?.toString() || '');
-  const [dueDate, setDueDate] = useState<Date | undefined>(
-    initialValues?.dueDate ? new Date(initialValues.dueDate) : undefined
-  );
-  const [isRecurring, setIsRecurring] = useState(
-    initialValues?.isRecurring || false
+  const [date, setDate] = useState(
+    initialValues?.deadline ? new Date(initialValues.deadline) : new Date()
   );
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [hasDeadline, setHasDeadline] = useState(!!initialValues?.deadline);
+  
+  const [errors, setErrors] = useState({
+    title: '',
+  });
 
-  const handleSubmit = () => {
-    if (!title || !description || !points) {
-      return;
+  const validateForm = () => {
+    let isValid = true;
+    const newErrors = { title: '' };
+
+    if (!title.trim()) {
+      newErrors.title = 'Название задачи обязательно';
+      isValid = false;
     }
 
-    onSubmit({
+    setErrors(newErrors);
+    return isValid;
+  };
+
+  const handleSubmit = () => {
+    if (!validateForm()) return;
+
+    const taskData: Omit<Task, 'id' | 'createdAt'> = {
       title,
       description,
-      points: parseInt(points, 10),
-      assignedTo: initialValues?.assignedTo || [],
-      dueDate,
-      status: initialValues?.status || 'todo',
-      isRecurring,
-      recurringSchedule: isRecurring
-        ? {
-            frequency: 'daily',
-            time: dueDate?.toLocaleTimeString([], {
-              hour: '2-digit',
-              minute: '2-digit',
-            }),
-          }
-        : undefined,
-    });
+      completed: false,
+      deadline: hasDeadline ? date.toISOString() : undefined,
+      assignedTo: [],
+    };
+
+    onSubmit(taskData);
+  };
+
+  const onDateChange = (event: any, selectedDate?: Date) => {
+    const currentDate = selectedDate || date;
+    setShowDatePicker(Platform.OS === 'ios');
+    setDate(currentDate);
+  };
+
+  const formatDate = (date: Date) => {
+    return date.toLocaleDateString();
   };
 
   return (
     <ScrollView style={styles.container}>
       <View style={styles.formGroup}>
-        <Text style={styles.label}>Название</Text>
+        <Text style={styles.label}>Название задачи*</Text>
         <TextInput
-          style={styles.input}
+          style={[styles.input, errors.title ? styles.inputError : null]}
           value={title}
           onChangeText={setTitle}
           placeholder="Введите название задачи"
+          placeholderTextColor={COLORS.gray}
         />
+        {errors.title ? <Text style={styles.errorText}>{errors.title}</Text> : null}
       </View>
 
       <View style={styles.formGroup}>
@@ -77,60 +89,49 @@ const TaskForm: React.FC<TaskFormProps> = ({
           value={description}
           onChangeText={setDescription}
           placeholder="Введите описание задачи"
+          placeholderTextColor={COLORS.gray}
           multiline
           numberOfLines={4}
         />
       </View>
 
       <View style={styles.formGroup}>
-        <Text style={styles.label}>Баллы</Text>
-        <TextInput
-          style={styles.input}
-          value={points}
-          onChangeText={setPoints}
-          placeholder="Введите количество баллов"
-          keyboardType="numeric"
-        />
+        <View style={styles.checkboxRow}>
+          <TouchableOpacity
+            style={styles.checkbox}
+            onPress={() => setHasDeadline(!hasDeadline)}
+          >
+            <View 
+              style={[
+                styles.checkboxInner, 
+                hasDeadline ? styles.checkboxChecked : null
+              ]} 
+            />
+          </TouchableOpacity>
+          <Text style={styles.checkboxLabel}>Установить срок выполнения</Text>
+        </View>
       </View>
 
-      <View style={styles.formGroup}>
-        <Text style={styles.label}>Срок выполнения</Text>
-        <TouchableOpacity
-          style={styles.dateButton}
-          onPress={() => setShowDatePicker(true)}
-        >
-          <Text>
-            {dueDate
-              ? dueDate.toLocaleString('ru-RU')
-              : 'Выберите дату и время'}
-          </Text>
-        </TouchableOpacity>
-      </View>
+      {hasDeadline && (
+        <View style={styles.formGroup}>
+          <Text style={styles.label}>Срок выполнения</Text>
+          <TouchableOpacity 
+            style={styles.datePickerButton}
+            onPress={() => setShowDatePicker(true)}
+          >
+            <Text style={styles.dateText}>{formatDate(date)}</Text>
+          </TouchableOpacity>
 
-      <View style={styles.formGroup}>
-        <TouchableOpacity
-          style={styles.checkbox}
-          onPress={() => setIsRecurring(!isRecurring)}
-        >
-          <View style={[styles.checkboxInner, isRecurring && styles.checked]}>
-            {isRecurring && <Text style={styles.checkmark}>✓</Text>}
-          </View>
-          <Text style={styles.checkboxLabel}>Повторяющаяся задача</Text>
-        </TouchableOpacity>
-      </View>
-
-      {showDatePicker && (
-        <DateTimePicker
-          value={dueDate || new Date()}
-          mode="datetime"
-          display="default"
-          onChange={(event, selectedDate) => {
-            setShowDatePicker(false);
-            if (selectedDate) {
-              setDueDate(selectedDate);
-            }
-          }}
-        />
+          {showDatePicker && (
+            <DateTimePicker
+              value={date}
+              mode="date"
+              display="default"
+              onChange={onDateChange}
+              minimumDate={new Date()}
+            />
+          )}
+        </View>
       )}
 
       <View style={styles.buttonGroup}>
@@ -138,15 +139,13 @@ const TaskForm: React.FC<TaskFormProps> = ({
           style={[styles.button, styles.cancelButton]}
           onPress={onCancel}
         >
-          <Text style={styles.buttonText}>Отмена</Text>
+          <Text style={styles.cancelButtonText}>Отмена</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.button, styles.submitButton]}
           onPress={handleSubmit}
         >
-          <Text style={[styles.buttonText, styles.submitButtonText]}>
-            Сохранить
-          </Text>
+          <Text style={styles.submitButtonText}>Сохранить</Text>
         </TouchableOpacity>
       </View>
     </ScrollView>
@@ -163,76 +162,97 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: SIZES.font,
-    color: COLORS.grayDark,
+    fontWeight: '500',
     marginBottom: 8,
+    color: COLORS.dark,
   },
   input: {
+    backgroundColor: COLORS.white,
     borderWidth: 1,
     borderColor: COLORS.grayLight,
     borderRadius: 8,
     padding: 12,
     fontSize: SIZES.font,
+    color: COLORS.dark,
+  },
+  inputError: {
+    borderColor: COLORS.danger,
+  },
+  errorText: {
+    color: COLORS.danger,
+    fontSize: SIZES.small,
+    marginTop: 4,
   },
   textArea: {
     height: 100,
     textAlignVertical: 'top',
   },
-  dateButton: {
+  checkboxRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: COLORS.primary,
+    marginRight: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkboxInner: {
+    width: 14,
+    height: 14,
+    borderRadius: 2,
+  },
+  checkboxChecked: {
+    backgroundColor: COLORS.primary,
+  },
+  checkboxLabel: {
+    fontSize: SIZES.font,
+    color: COLORS.dark,
+  },
+  datePickerButton: {
+    backgroundColor: COLORS.white,
     borderWidth: 1,
     borderColor: COLORS.grayLight,
     borderRadius: 8,
     padding: 12,
+  },
+  dateText: {
     fontSize: SIZES.font,
-  },
-  checkbox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  checkboxInner: {
-    width: 24,
-    height: 24,
-    borderWidth: 2,
-    borderColor: COLORS.primary,
-    borderRadius: 4,
-    marginRight: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  checked: {
-    backgroundColor: COLORS.primary,
-  },
-  checkmark: {
-    color: COLORS.white,
-    fontSize: 16,
-  },
-  checkboxLabel: {
-    fontSize: SIZES.font,
-    color: COLORS.grayDark,
+    color: COLORS.dark,
   },
   buttonGroup: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 24,
+    marginTop: 20,
   },
   button: {
     flex: 1,
-    padding: 16,
     borderRadius: 8,
+    padding: 16,
+    justifyContent: 'center',
     alignItems: 'center',
-    marginHorizontal: 8,
   },
   cancelButton: {
     backgroundColor: COLORS.grayLight,
+    marginRight: 8,
   },
   submitButton: {
     backgroundColor: COLORS.primary,
+    marginLeft: 8,
   },
-  buttonText: {
-    fontSize: SIZES.medium,
+  cancelButtonText: {
     color: COLORS.grayDark,
+    fontSize: SIZES.font,
+    fontWeight: '500',
   },
   submitButtonText: {
     color: COLORS.white,
+    fontSize: SIZES.font,
+    fontWeight: '500',
   },
 });
 

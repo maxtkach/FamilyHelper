@@ -9,15 +9,22 @@ import {
   Alert,
   Platform,
   Switch,
+  Modal,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, SIZES, SHADOWS } from '../constants';
+import { useApp } from '../context/AppContext';
+import { UserRole } from '../types';
 
 const ProfileScreen: React.FC = () => {
+  const { auth, logout, updateUserProfile } = useApp();
+  const user = auth.user;
   const [notifications, setNotifications] = useState(true);
   const [darkMode, setDarkMode] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
+  const [showRoleModal, setShowRoleModal] = useState(false);
+  const [selectedRole, setSelectedRole] = useState<string>(user?.role || 'personal');
 
   // Анимации
   const avatarScale = useRef(new Animated.Value(1)).current;
@@ -101,9 +108,126 @@ const ProfileScreen: React.FC = () => {
       'Вы уверены, что хотите выйти?',
       [
         { text: 'Отмена', style: 'cancel' },
-        { text: 'Выйти', style: 'destructive', onPress: () => console.log('Logout') },
+        { 
+          text: 'Выйти', 
+          style: 'destructive', 
+          onPress: () => logout() 
+        },
       ]
     );
+  };
+
+  // Преобразование роли в понятный текст
+  const getRoleText = (role: string) => {
+    switch (role) {
+      case 'parent':
+        return 'Родитель';
+      case 'child':
+        return 'Ребенок';
+      case 'personal':
+        return 'Личное использование';
+      case 'boyfriend':
+        return 'Парень';
+      case 'girlfriend':
+        return 'Девушка';
+      default:
+        return 'Пользователь';
+    }
+  };
+
+  // Получение иконки для роли
+  const getRoleIcon = (role: string) => {
+    switch (role) {
+      case 'parent':
+        return 'account-child';
+      case 'child':
+        return 'human-child';
+      case 'boyfriend':
+        return 'human-male';
+      case 'girlfriend':
+        return 'human-female';
+      case 'personal':
+        return 'account';
+      default:
+        return 'account';
+    }
+  };
+
+  // Доступные роли
+  const roles: { value: string; label: string; icon: string; description: string }[] = [
+    { 
+      value: 'parent', 
+      label: 'Родитель', 
+      icon: 'account-child',
+      description: 'Для родителей, которые хотят организовать семейные задачи и расходы'
+    },
+    { 
+      value: 'child', 
+      label: 'Ребенок', 
+      icon: 'human-child',
+      description: 'Для детей, которые хотят участвовать в семейных задачах и зарабатывать баллы'
+    },
+    { 
+      value: 'personal', 
+      label: 'Личное использование', 
+      icon: 'account',
+      description: 'Для индивидуального планирования и управления личными задачами'
+    },
+    { 
+      value: 'boyfriend', 
+      label: 'Парень', 
+      icon: 'human-male',
+      description: 'Для использования приложения в паре (мужская часть)'
+    },
+    { 
+      value: 'girlfriend', 
+      label: 'Девушка', 
+      icon: 'human-female',
+      description: 'Для использования приложения в паре (женская часть)'
+    },
+  ];
+
+  // Функция изменения роли
+  const handleRoleChange = async (role: string) => {
+    try {
+      if (role === user?.role) {
+        Alert.alert('Информация', 'Выбрана текущая роль. Изменения не требуются.');
+        setShowRoleModal(false);
+        return;
+      }
+      
+      setSelectedRole(role);
+      console.log('Меняем роль на:', role, 'текущая роль:', user?.role);
+      
+      // Запрашиваем подтверждение
+      Alert.alert(
+        'Изменение роли',
+        `Вы уверены, что хотите изменить свою роль с "${getRoleText(user?.role || '')}" на "${getRoleText(role)}"?`,
+        [
+          {
+            text: 'Отмена',
+            style: 'cancel'
+          },
+          {
+            text: 'Изменить',
+            onPress: async () => {
+              try {
+                const result = await updateUserProfile({ role: role as UserRole });
+                console.log('Результат обновления профиля:', result);
+              } catch (error) {
+                console.error('Ошибка при изменении роли:', error);
+                Alert.alert('Ошибка', 'Не удалось изменить роль. Пожалуйста, попробуйте снова.');
+              } finally {
+                setShowRoleModal(false);
+              }
+            }
+          }
+        ]
+      );
+    } catch (error) {
+      console.error('Ошибка при подготовке изменения роли:', error);
+      Alert.alert('Ошибка', 'Произошла ошибка. Пожалуйста, попробуйте снова.');
+    }
   };
 
   return (
@@ -112,7 +236,20 @@ const ProfileScreen: React.FC = () => {
         colors={COLORS.gradient.primary}
         style={styles.header}
       >
-        <Text style={styles.title}>Профіль</Text>
+        <View style={styles.userContainer}>
+          <View style={styles.avatarContainer}>
+            <MaterialCommunityIcons name="account-circle" size={80} color={COLORS.white} />
+          </View>
+          <Text style={styles.userName}>{user?.name}</Text>
+          <View style={styles.roleContainer}>
+            <MaterialCommunityIcons 
+              name={getRoleIcon(user?.role || '')} 
+              size={16} 
+              color={COLORS.white} 
+            />
+            <Text style={styles.roleText}>{getRoleText(user?.role || '')}</Text>
+          </View>
+        </View>
       </LinearGradient>
 
       <ScrollView style={styles.container}>
@@ -132,8 +269,8 @@ const ProfileScreen: React.FC = () => {
               </View>
             </Animated.View>
           </TouchableOpacity>
-          <Text style={styles.userName}>Іван Іванов</Text>
-          <Text style={styles.userRole}>Голова сім'ї</Text>
+          <Text style={styles.userName}>{user?.name || 'Пользователь'}</Text>
+          <Text style={styles.userRole}>{getRoleText(user?.role || '')}</Text>
         </View>
 
         <View style={styles.statsSection}>
@@ -229,6 +366,20 @@ const ProfileScreen: React.FC = () => {
             </View>
             <TouchableOpacity 
               style={styles.settingItem}
+              onPress={() => setShowRoleModal(true)}
+            >
+              <View style={styles.settingInfo}>
+                <MaterialCommunityIcons 
+                  name={getRoleIcon(user?.role || '')} 
+                  size={24} 
+                  color={COLORS.primary} 
+                />
+                <Text style={styles.settingText}>Изменить роль</Text>
+              </View>
+              <MaterialCommunityIcons name="chevron-right" size={24} color={COLORS.gray} />
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={styles.settingItem}
               onPress={() => Alert.alert('Язык', 'Здесь будет выбор языка')}
             >
               <View style={styles.settingInfo}>
@@ -249,15 +400,82 @@ const ProfileScreen: React.FC = () => {
             </TouchableOpacity>
           </View>
         </View>
-
-        <TouchableOpacity 
-          style={styles.logoutButton}
-          onPress={handleLogout}
-        >
-          <MaterialCommunityIcons name="logout" size={24} color={COLORS.white} />
-          <Text style={styles.logoutText}>Выйти</Text>
-        </TouchableOpacity>
       </ScrollView>
+
+      <TouchableOpacity 
+        style={styles.logoutButton}
+        onPress={handleLogout}
+      >
+        <MaterialCommunityIcons name="logout" size={20} color={COLORS.white} />
+        <Text style={styles.logoutButtonText}>Выйти</Text>
+      </TouchableOpacity>
+
+      {/* Модальное окно для выбора роли */}
+      <Modal
+        visible={showRoleModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowRoleModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Изменить роль</Text>
+              <TouchableOpacity onPress={() => setShowRoleModal(false)}>
+                <MaterialCommunityIcons name="close" size={24} color={COLORS.grayDark} />
+              </TouchableOpacity>
+            </View>
+            
+            <ScrollView style={styles.modalContent}>
+              <Text style={styles.modalDescription}>
+                Выберите роль, которая лучше всего соответствует вашим целям использования приложения:
+              </Text>
+              
+              {roles.map((role) => (
+                <TouchableOpacity
+                  key={role.value}
+                  style={[
+                    styles.roleOption,
+                    selectedRole === role.value && styles.roleOptionSelected
+                  ]}
+                  onPress={() => setSelectedRole(role.value)}
+                >
+                  <View style={styles.roleHeader}>
+                    <MaterialCommunityIcons
+                      name={role.icon as any}
+                      size={28}
+                      color={selectedRole === role.value ? COLORS.white : COLORS.primary}
+                    />
+                    <Text
+                      style={[
+                        styles.roleOptionTitle,
+                        selectedRole === role.value && styles.roleOptionTitleSelected
+                      ]}
+                    >
+                      {role.label}
+                    </Text>
+                  </View>
+                  <Text
+                    style={[
+                      styles.roleOptionDescription,
+                      selectedRole === role.value && styles.roleOptionDescriptionSelected
+                    ]}
+                  >
+                    {role.description}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+              
+              <TouchableOpacity
+                style={styles.saveButton}
+                onPress={() => handleRoleChange(selectedRole)}
+              >
+                <Text style={styles.saveButtonText}>Сохранить</Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -419,20 +637,117 @@ const styles = StyleSheet.create({
     marginLeft: 12,
   },
   logoutButton: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    margin: 16,
-    padding: 16,
     backgroundColor: COLORS.danger,
-    borderRadius: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    marginHorizontal: 16,
+    marginBottom: 16,
     ...SHADOWS.medium,
   },
-  logoutText: {
-    fontSize: SIZES.medium,
-    fontWeight: '500',
-    color: COLORS.white,
+  logoutButtonText: {
     marginLeft: 8,
+    color: COLORS.white,
+    fontSize: SIZES.medium,
+    fontWeight: 'bold',
+  },
+  userContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 20,
+  },
+  roleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 8,
+  },
+  roleText: {
+    fontSize: SIZES.font,
+    color: COLORS.white,
+    marginLeft: 4,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContainer: {
+    backgroundColor: COLORS.white,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: 20,
+    height: '80%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.light,
+  },
+  modalTitle: {
+    fontSize: SIZES.large,
+    fontWeight: 'bold',
+    color: COLORS.primary,
+  },
+  modalContent: {
+    padding: 16,
+  },
+  modalDescription: {
+    fontSize: SIZES.font,
+    color: COLORS.grayDark,
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  roleOption: {
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+  },
+  roleOptionSelected: {
+    backgroundColor: COLORS.primary,
+  },
+  roleHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  roleOptionTitle: {
+    fontSize: SIZES.medium,
+    fontWeight: 'bold',
+    color: COLORS.primary,
+    marginLeft: 12,
+  },
+  roleOptionTitleSelected: {
+    color: COLORS.white,
+  },
+  roleOptionDescription: {
+    fontSize: SIZES.small,
+    color: COLORS.grayDark,
+    marginLeft: 40,
+  },
+  roleOptionDescriptionSelected: {
+    color: COLORS.light,
+  },
+  saveButton: {
+    backgroundColor: COLORS.primary,
+    borderRadius: 8,
+    padding: 16,
+    alignItems: 'center',
+    marginTop: 16,
+    marginBottom: 24,
+  },
+  saveButtonText: {
+    color: COLORS.white,
+    fontSize: SIZES.medium,
+    fontWeight: 'bold',
   },
 });
 

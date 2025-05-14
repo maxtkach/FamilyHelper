@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -7,16 +7,22 @@ import {
   TouchableOpacity, 
   Animated,
   Alert,
-  Platform 
+  Platform,
+  Modal
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { COLORS, SIZES, SHADOWS } from '../constants';
 import { LinearGradient } from 'expo-linear-gradient';
+import TaskForm from '../components/forms/TaskForm';
+import { useApp } from '../context/AppContext';
+import { Task } from '../types';
 
 const TasksScreen: React.FC = () => {
+  const { tasks, addTask, updateTask, deleteTask } = useApp();
   const [selectedFilter, setSelectedFilter] = useState('Все');
   const [completedTasks, setCompletedTasks] = useState<string[]>([]);
   const [expandedTask, setExpandedTask] = useState<string | null>(null);
+  const [modalVisible, setModalVisible] = useState(false);
 
   // Анимации
   const filterAnimations = useRef(
@@ -26,39 +32,14 @@ const TasksScreen: React.FC = () => {
   const taskScaleAnimations = useRef<{ [key: string]: Animated.Value }>({}).current;
   const addButtonScale = useRef(new Animated.Value(1)).current;
 
-  const tasks = [
-    {
-      id: '1',
-      title: 'Помити посуд',
-      description: 'Після вечері помити весь посуд',
-      points: 10,
-      status: 'todo',
-      assignedTo: 'Іван',
-    },
-    {
-      id: '2',
-      title: 'Пропилососити',
-      description: 'Пропилососити всі кімнати',
-      points: 15,
-      status: 'in_progress',
-      assignedTo: 'Марія',
-    },
-    {
-      id: '3',
-      title: 'Винести сміття',
-      description: 'Винести сміття з усіх кошиків',
-      points: 5,
-      status: 'done',
-      assignedTo: 'Петро',
-    },
-  ];
-
   // Инициализация анимаций для задач
-  tasks.forEach(task => {
-    if (!taskScaleAnimations[task.id]) {
-      taskScaleAnimations[task.id] = new Animated.Value(1);
-    }
-  });
+  useEffect(() => {
+    tasks.forEach(task => {
+      if (!taskScaleAnimations[task.id]) {
+        taskScaleAnimations[task.id] = new Animated.Value(1);
+      }
+    });
+  }, [tasks]);
 
   const animateFilter = (index: number) => {
     Animated.sequence([
@@ -92,7 +73,21 @@ const TasksScreen: React.FC = () => {
 
   const handleAddPress = () => {
     animateAddButton();
-    Alert.alert('Нове завдання', 'Тут буде форма створення нового завдання');
+    setModalVisible(true);
+  };
+
+  const handleFormSubmit = async (taskData: Omit<Task, 'id' | 'createdAt'>) => {
+    try {
+      await addTask(taskData);
+      setModalVisible(false);
+      Alert.alert('Успех', 'Задача успешно создана!');
+    } catch (error) {
+      Alert.alert('Ошибка', 'Не удалось создать задачу');
+    }
+  };
+
+  const handleFormCancel = () => {
+    setModalVisible(false);
   };
 
   const handleFilterPress = (filter: string, index: number) => {
@@ -117,16 +112,37 @@ const TasksScreen: React.FC = () => {
     ]).start();
   };
 
-  const handleTaskComplete = (taskId: string) => {
-    if (completedTasks.includes(taskId)) {
-      setCompletedTasks(completedTasks.filter(id => id !== taskId));
-    } else {
-      setCompletedTasks([...completedTasks, taskId]);
+  const handleTaskComplete = async (taskId: string) => {
+    try {
+      const task = tasks.find(t => t.id === taskId);
+      if (!task) return;
+
+      const isCompleted = completedTasks.includes(taskId);
       
-      // Анимация конфетти или успеха
-      Alert.alert('Вітаємо! 🎉', 'Завдання виконано! Ви заробили бали! 🌟');
+      // Обновить статус задачи на сервере
+      await updateTask(taskId, { completed: !isCompleted });
+
+      if (isCompleted) {
+        setCompletedTasks(completedTasks.filter(id => id !== taskId));
+      } else {
+        setCompletedTasks([...completedTasks, taskId]);
+        
+        // Анимация конфетти или успеха
+        Alert.alert('Вітаємо! 🎉', 'Завдання виконано! Ви заробили бали! 🌟');
+      }
+    } catch (error) {
+      Alert.alert('Ошибка', 'Не удалось обновить статус задачи');
     }
   };
+
+  // Загрузка статуса выполненных задач из состояния задач
+  useEffect(() => {
+    const completed = tasks
+      .filter(task => task.completed)
+      .map(task => task.id);
+    
+    setCompletedTasks(completed);
+  }, [tasks]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -153,6 +169,14 @@ const TasksScreen: React.FC = () => {
         return 'checkbox-blank-circle-outline';
     }
   };
+
+  // Получаем отфильтрованные задачи
+  const filteredTasks = tasks.filter(task => {
+    if (selectedFilter === 'Все') return true;
+    if (selectedFilter === 'Мои') return true; // Тут нужна проверка на текущего пользователя
+    if (selectedFilter === 'Семья') return true; // Тут нужна проверка на семью
+    return true;
+  });
 
   return (
     <View style={styles.background}>
@@ -198,31 +222,27 @@ const TasksScreen: React.FC = () => {
           ))}
         </View>
 
-        <View style={styles.section}>
-          {tasks.map((task) => (
+        <View style={styles.tasksContainer}>
+          {filteredTasks.map((task) => (
             <Animated.View
               key={task.id}
               style={[
                 styles.taskCard,
-                {
-                  transform: [{ scale: taskScaleAnimations[task.id] }],
-                  opacity: completedTasks.includes(task.id) ? 0.7 : 1,
-                },
+                { transform: [{ scale: taskScaleAnimations[task.id] || 1 }] },
               ]}
             >
-              <TouchableOpacity
+              <TouchableOpacity 
                 style={styles.taskContent}
                 onPress={() => handleTaskPress(task.id)}
-                activeOpacity={0.8}
               >
-                <TouchableOpacity
+                <TouchableOpacity 
                   style={styles.taskIcon}
                   onPress={() => handleTaskComplete(task.id)}
                 >
                   <MaterialCommunityIcons
-                    name={completedTasks.includes(task.id) ? 'checkbox-marked-circle' : getStatusIcon(task.status)}
+                    name={completedTasks.includes(task.id) ? 'checkbox-marked-circle' : 'checkbox-blank-circle-outline'}
                     size={24}
-                    color={completedTasks.includes(task.id) ? COLORS.success : getStatusColor(task.status)}
+                    color={completedTasks.includes(task.id) ? COLORS.success : COLORS.gray}
                   />
                 </TouchableOpacity>
                 <View style={styles.taskInfo}>
@@ -243,35 +263,54 @@ const TasksScreen: React.FC = () => {
                       <View style={styles.taskDetailRow}>
                         <MaterialCommunityIcons name="account" size={16} color={COLORS.gray} />
                         <Text style={styles.taskDetailText}>
-                          Виконавець: {task.assignedTo}
+                          Исполнитель: {task.assignedToName || 'Не назначен'}
                         </Text>
                       </View>
+                      {task.deadline && (
+                        <View style={styles.taskDetailRow}>
+                          <MaterialCommunityIcons name="calendar" size={16} color={COLORS.gray} />
+                          <Text style={styles.taskDetailText}>
+                            Срок: {new Date(task.deadline).toLocaleDateString()}
+                          </Text>
+                        </View>
+                      )}
                       <View style={styles.taskDetailRow}>
                         <MaterialCommunityIcons name="star" size={16} color={COLORS.warning} />
                         <Text style={styles.taskDetailText}>
-                          Бали: {task.points}
-                        </Text>
-                      </View>
-                      <View style={styles.taskDetailRow}>
-                        <MaterialCommunityIcons 
-                          name={getStatusIcon(task.status)} 
-                          size={16} 
-                          color={getStatusColor(task.status)} 
-                        />
-                        <Text style={styles.taskDetailText}>
-                          Статус: {task.status === 'todo' ? 'До виконання' : 
-                                  task.status === 'in_progress' ? 'В процесі' : 'Виконано'}
+                          Баллы: {task.points || 10}
                         </Text>
                       </View>
                     </Animated.View>
                   )}
                 </View>
-                <Text style={styles.taskPoints}>+{task.points} 🌟</Text>
               </TouchableOpacity>
             </Animated.View>
           ))}
         </View>
       </ScrollView>
+
+      {/* Модальное окно с формой создания задачи */}
+      <Modal
+        visible={modalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Новая задача</Text>
+              <TouchableOpacity onPress={() => setModalVisible(false)}>
+                <MaterialCommunityIcons name="close" size={24} color={COLORS.grayDark} />
+              </TouchableOpacity>
+            </View>
+            <TaskForm
+              onSubmit={handleFormSubmit}
+              onCancel={handleFormCancel}
+            />
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -281,18 +320,13 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
   },
-  container: {
-    flex: 1,
-  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
-    paddingTop: Platform.OS === 'ios' ? 50 : 40,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
-    ...SHADOWS.medium,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    paddingTop: Platform.OS === 'ios' ? 48 : 16,
   },
   title: {
     fontSize: SIZES.extraLarge,
@@ -300,18 +334,22 @@ const styles = StyleSheet.create({
     color: COLORS.white,
   },
   addButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
     backgroundColor: COLORS.white,
+    borderRadius: 30,
+    width: 40,
+    height: 40,
     justifyContent: 'center',
     alignItems: 'center',
-    ...SHADOWS.medium,
+    ...SHADOWS.light,
+  },
+  container: {
+    flex: 1,
+    paddingHorizontal: 16,
   },
   filterContainer: {
     flexDirection: 'row',
-    padding: 16,
-    gap: 8,
+    justifyContent: 'space-between',
+    marginVertical: 16,
   },
   filterButton: {
     paddingVertical: 8,
@@ -330,39 +368,31 @@ const styles = StyleSheet.create({
   filterTextActive: {
     color: COLORS.white,
   },
-  section: {
-    padding: 16,
+  tasksContainer: {
+    marginBottom: 100,
   },
   taskCard: {
     backgroundColor: COLORS.white,
-    borderRadius: 16,
+    borderRadius: 10,
     marginBottom: 12,
-    borderWidth: 1,
-    borderColor: COLORS.grayLight,
-    ...SHADOWS.light,
+    ...SHADOWS.medium,
     overflow: 'hidden',
   },
   taskContent: {
     flexDirection: 'row',
-    alignItems: 'center',
     padding: 16,
   },
   taskIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: COLORS.light,
-    justifyContent: 'center',
-    alignItems: 'center',
     marginRight: 12,
+    alignSelf: 'flex-start',
+    padding: 4,
   },
   taskInfo: {
     flex: 1,
   },
   taskTitle: {
     fontSize: SIZES.medium,
-    fontWeight: '500',
-    color: COLORS.dark,
+    fontWeight: 'bold',
     marginBottom: 4,
   },
   completedText: {
@@ -370,28 +400,48 @@ const styles = StyleSheet.create({
     color: COLORS.gray,
   },
   taskDescription: {
-    fontSize: SIZES.small,
-    color: COLORS.gray,
+    fontSize: SIZES.font,
+    color: COLORS.grayDark,
+    marginBottom: 8,
   },
   taskDetails: {
-    marginTop: 12,
-    padding: 12,
     backgroundColor: COLORS.light,
-    borderRadius: 12,
-    gap: 8,
+    padding: 10,
+    borderRadius: 8,
+    marginTop: 8,
   },
   taskDetailRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    marginBottom: 4,
   },
   taskDetailText: {
     fontSize: SIZES.small,
-    color: COLORS.gray,
-    flex: 1,
+    color: COLORS.grayDark,
+    marginLeft: 8,
   },
-  taskPoints: {
-    fontSize: SIZES.medium,
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContainer: {
+    backgroundColor: COLORS.white,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: 20,
+    height: '80%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.light,
+  },
+  modalTitle: {
+    fontSize: SIZES.large,
     fontWeight: 'bold',
     color: COLORS.primary,
   },

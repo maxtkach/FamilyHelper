@@ -3,17 +3,33 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Platform } from 'react-native';
+import { Platform, View, StyleSheet } from 'react-native';
 import { COLORS, SHADOWS } from '../constants';
+import { useApp } from '../context/AppContext';
 
 import HomeScreen from '../screens/HomeScreen';
 import TasksScreen from '../screens/TasksScreen';
 import CalendarScreen from '../screens/CalendarScreen';
 import FinanceScreen from '../screens/FinanceScreen';
 import ProfileScreen from '../screens/ProfileScreen';
+import AuthScreen from '../screens/AuthScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
+
+// Компонент-обертка для центрирования иконок
+interface TabBarIconProps {
+  name: React.ComponentProps<typeof MaterialCommunityIcons>['name'];
+  color: string;
+}
+
+const TabBarIcon = ({ name, color }: TabBarIconProps) => {
+  return (
+    <View style={styles.iconContainer}>
+      <MaterialCommunityIcons name={name} color={color} size={28} />
+    </View>
+  );
+};
 
 const TabNavigator = () => {
   return (
@@ -26,12 +42,16 @@ const TabNavigator = () => {
           bottom: Platform.OS === 'ios' ? 20 : 16,
           left: 16,
           right: 16,
-          elevation: 0,
           backgroundColor: COLORS.white,
           borderRadius: 24,
           height: 64,
           ...SHADOWS.medium,
           borderTopWidth: 0,
+        },
+        tabBarItemStyle: {
+          height: 64,
+          justifyContent: 'center',
+          alignItems: 'center',
         },
         tabBarActiveTintColor: COLORS.primary,
         tabBarInactiveTintColor: COLORS.gray,
@@ -42,7 +62,7 @@ const TabNavigator = () => {
         component={HomeScreen}
         options={{
           tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="home" color={color} size={28} />
+            <TabBarIcon name="home" color={color} />
           ),
         }}
       />
@@ -51,7 +71,7 @@ const TabNavigator = () => {
         component={TasksScreen}
         options={{
           tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="format-list-checks" color={color} size={28} />
+            <TabBarIcon name="format-list-checks" color={color} />
           ),
         }}
       />
@@ -60,7 +80,7 @@ const TabNavigator = () => {
         component={CalendarScreen}
         options={{
           tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="calendar" color={color} size={28} />
+            <TabBarIcon name="calendar" color={color} />
           ),
         }}
       />
@@ -69,7 +89,7 @@ const TabNavigator = () => {
         component={FinanceScreen}
         options={{
           tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="wallet" color={color} size={28} />
+            <TabBarIcon name="wallet" color={color} />
           ),
         }}
       />
@@ -78,7 +98,7 @@ const TabNavigator = () => {
         component={ProfileScreen}
         options={{
           tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="account" color={color} size={28} />
+            <TabBarIcon name="account" color={color} />
           ),
         }}
       />
@@ -87,17 +107,37 @@ const TabNavigator = () => {
 };
 
 const AppNavigator = () => {
+  const { auth } = useApp();
+
   return (
     <NavigationContainer>
       <Stack.Navigator>
-        <Stack.Screen
-          name="MainTabs"
-          component={TabNavigator}
-          options={{ headerShown: false }}
-        />
+        {!auth.isAuthenticated ? (
+          <Stack.Screen
+            name="Auth"
+            component={AuthScreen}
+            options={{ headerShown: false }}
+          />
+        ) : (
+          <Stack.Screen
+            name="MainTabs"
+            component={TabNavigator}
+            options={{ headerShown: false }}
+          />
+        )}
       </Stack.Navigator>
     </NavigationContainer>
   );
 };
+
+const styles = StyleSheet.create({
+  iconContainer: {
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: '100%',
+    height: '100%',
+  }
+});
 
 export default AppNavigator; 
