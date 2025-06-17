@@ -292,15 +292,16 @@ const CalendarScreen: React.FC = () => {
                     <Text style={styles.eventTitle} numberOfLines={1}>
                       {event.title}
                     </Text>
-                    <Text style={styles.eventTime}>
-                      {new Date(event.startDate).toLocaleString('uk-UA', {
-                        day: '2-digit',
-                        month: '2-digit',
-                        year: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </Text>
+                    <Text>
+  {new Date().toLocaleString('uk-UA', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  })}
+</Text>
+
                     {event.location && (
                       <Text style={styles.eventLocation} numberOfLines={1}>
                         <MaterialCommunityIcons name="map-marker" size={12} color={COLORS.gray} />

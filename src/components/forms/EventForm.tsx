@@ -532,34 +532,34 @@ const EventForm: React.FC<EventFormProps> = ({
         <View style={styles.datesContainer}>
           <View style={[styles.dateGroup]}>
             <Text style={styles.dateLabel}>Початок</Text>
-            <TouchableOpacity
+        <TouchableOpacity
               style={[
                 styles.dateButton,
                 errors.dates ? styles.inputError : null,
               ]}
-              onPress={() => setShowStartDatePicker(true)}
-            >
+          onPress={() => setShowStartDatePicker(true)}
+        >
               <View style={styles.dateButtonContent}>
                 <Text style={styles.dateText} numberOfLines={1}>{formatDate(startDate)}</Text>
                 <MaterialCommunityIcons name="calendar-clock" size={20} color={COLORS.primary} />
               </View>
-            </TouchableOpacity>
-          </View>
+        </TouchableOpacity>
+      </View>
 
           <View style={[styles.dateGroup]}>
             <Text style={styles.dateLabel}>Закінчення</Text>
-            <TouchableOpacity
+        <TouchableOpacity
               style={[
                 styles.dateButton,
                 errors.dates ? styles.inputError : null,
               ]}
-              onPress={() => setShowEndDatePicker(true)}
-            >
+          onPress={() => setShowEndDatePicker(true)}
+        >
               <View style={styles.dateButtonContent}>
                 <Text style={styles.dateText} numberOfLines={1}>{formatDate(endDate)}</Text>
                 <MaterialCommunityIcons name="calendar-clock" size={20} color={COLORS.primary} />
               </View>
-            </TouchableOpacity>
+        </TouchableOpacity>
           </View>
         </View>
         {errors.dates && <Text style={styles.errorText}>{errors.dates}</Text>}
@@ -641,9 +641,9 @@ const EventForm: React.FC<EventFormProps> = ({
           {isSubmitting ? (
             <ActivityIndicator color={COLORS.white} />
           ) : (
-            <Text style={[styles.buttonText, styles.submitButtonText]}>
+          <Text style={[styles.buttonText, styles.submitButtonText]}>
               Зберегти
-            </Text>
+          </Text>
           )}
         </TouchableOpacity>
       </View>

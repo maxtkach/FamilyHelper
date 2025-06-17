@@ -19,14 +19,14 @@ import { Task } from '../types';
 
 const TasksScreen: React.FC = () => {
   const { tasks, addTask, updateTask, deleteTask } = useApp();
-  const [selectedFilter, setSelectedFilter] = useState('Все');
+  const [selectedFilter, setSelectedFilter] = useState('Всі');
   const [completedTasks, setCompletedTasks] = useState<string[]>([]);
   const [expandedTask, setExpandedTask] = useState<string | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
 
   // Анимации
   const filterAnimations = useRef(
-    ['Все', 'Мои', 'Семья'].map(() => new Animated.Value(1))
+    ['Всі', 'Мої', 'Родина'].map(() => new Animated.Value(1))
   ).current;
   
   const taskScaleAnimations = useRef<{ [key: string]: Animated.Value }>({}).current;
@@ -80,9 +80,9 @@ const TasksScreen: React.FC = () => {
     try {
       await addTask(taskData);
       setModalVisible(false);
-      Alert.alert('Успех', 'Задача успешно создана!');
+      Alert.alert('Успіх', 'Завдання успішно створено!');
     } catch (error) {
-      Alert.alert('Ошибка', 'Не удалось создать задачу');
+      Alert.alert('Помилка', 'Не вдалося створити завдання');
     }
   };
 
@@ -131,8 +131,33 @@ const TasksScreen: React.FC = () => {
         Alert.alert('Вітаємо! 🎉', 'Завдання виконано! Ви заробили бали! 🌟');
       }
     } catch (error) {
-      Alert.alert('Ошибка', 'Не удалось обновить статус задачи');
+      Alert.alert('Помилка', 'Не вдалося оновити статус завдання');
     }
+  };
+  
+  const handleDeleteTask = (taskId: string) => {
+    Alert.alert(
+      'Видалення завдання',
+      'Ви впевнені, що хочете видалити це завдання?',
+      [
+        {
+          text: 'Скасувати',
+          style: 'cancel'
+        },
+        {
+          text: 'Видалити',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteTask(taskId);
+              Alert.alert('Успіх', 'Завдання успішно видалено');
+            } catch (error) {
+              Alert.alert('Помилка', 'Не вдалося видалити завдання');
+            }
+          }
+        }
+      ]
+    );
   };
 
   // Загрузка статуса выполненных задач из состояния задач
@@ -172,9 +197,9 @@ const TasksScreen: React.FC = () => {
 
   // Получаем отфильтрованные задачи
   const filteredTasks = tasks.filter(task => {
-    if (selectedFilter === 'Все') return true;
-    if (selectedFilter === 'Мои') return true; // Тут нужна проверка на текущего пользователя
-    if (selectedFilter === 'Семья') return true; // Тут нужна проверка на семью
+    if (selectedFilter === 'Всі') return true;
+    if (selectedFilter === 'Мої') return true; // Тут нужна проверка на текущего пользователя
+    if (selectedFilter === 'Родина') return true; // Тут нужна проверка на семью
     return true;
   });
 
@@ -197,22 +222,22 @@ const TasksScreen: React.FC = () => {
 
       <ScrollView style={styles.container}>
         <View style={styles.filterContainer}>
-          {['Все', 'Мои', 'Семья'].map((filter, index) => (
-            <Animated.View
-              key={index}
+          {['Всі', 'Мої', 'Родина'].map((filter, index) => (
+            <Animated.View 
+              key={filter} 
               style={{ transform: [{ scale: filterAnimations[index] }] }}
             >
               <TouchableOpacity
                 style={[
                   styles.filterButton,
-                  selectedFilter === filter && styles.filterButtonActive,
+                  selectedFilter === filter && styles.filterButtonActive
                 ]}
                 onPress={() => handleFilterPress(filter, index)}
               >
-                <Text
+                <Text 
                   style={[
                     styles.filterText,
-                    selectedFilter === filter && styles.filterTextActive,
+                    selectedFilter === filter && styles.filterTextActive
                   ]}
                 >
                   {filter}
@@ -222,13 +247,13 @@ const TasksScreen: React.FC = () => {
           ))}
         </View>
 
-        <View style={styles.tasksContainer}>
-          {filteredTasks.map((task) => (
-            <Animated.View
-              key={task.id}
+        {filteredTasks.length > 0 ? (
+          filteredTasks.map((task) => (
+            <Animated.View 
+              key={task.id} 
               style={[
                 styles.taskCard,
-                { transform: [{ scale: taskScaleAnimations[task.id] || 1 }] },
+                { transform: [{ scale: taskScaleAnimations[task.id] || 1 }] }
               ]}
             >
               <TouchableOpacity 
@@ -254,60 +279,53 @@ const TasksScreen: React.FC = () => {
                   </Text>
                   <Text style={styles.taskDescription}>{task.description}</Text>
                   {expandedTask === task.id && (
-                    <Animated.View 
-                      style={[
-                        styles.taskDetails,
-                        { opacity: expandedTask === task.id ? 1 : 0 }
-                      ]}
-                    >
-                      <View style={styles.taskDetailRow}>
-                        <MaterialCommunityIcons name="account" size={16} color={COLORS.gray} />
-                        <Text style={styles.taskDetailText}>
-                          Исполнитель: {task.assignedToName || 'Не назначен'}
-                        </Text>
+                    <View style={styles.taskDetails}>
+                      <Text style={styles.taskDetailText}>
+                        Виконавець: {task.assignedToName || 'Не призначено'}
+                      </Text>
+                      <Text style={styles.taskDetailText}>
+                        Термін: {task.deadline ? new Date(task.deadline).toLocaleDateString('uk-UA') : 'Не встановлено'}
+                      </Text>
+                      <View style={styles.taskActions}>
+                        <TouchableOpacity 
+                          style={styles.taskAction}
+                          onPress={() => handleDeleteTask(task.id)}
+                        >
+                          <MaterialCommunityIcons name="delete" size={20} color={COLORS.danger} />
+                          <Text style={[styles.taskActionText, { color: COLORS.danger }]}>Видалити</Text>
+                        </TouchableOpacity>
                       </View>
-                      {task.deadline && (
-                        <View style={styles.taskDetailRow}>
-                          <MaterialCommunityIcons name="calendar" size={16} color={COLORS.gray} />
-                          <Text style={styles.taskDetailText}>
-                            Срок: {new Date(task.deadline).toLocaleDateString()}
-                          </Text>
-                        </View>
-                      )}
-                      <View style={styles.taskDetailRow}>
-                        <MaterialCommunityIcons name="star" size={16} color={COLORS.warning} />
-                        <Text style={styles.taskDetailText}>
-                          Баллы: {task.points || 10}
-                        </Text>
-                      </View>
-                    </Animated.View>
+                    </View>
                   )}
                 </View>
+                <Text style={styles.taskPoints}>+{task.points || 10} 🌟</Text>
               </TouchableOpacity>
             </Animated.View>
-          ))}
-        </View>
+          ))
+        ) : (
+          <View style={styles.emptyContainer}>
+            <MaterialCommunityIcons name="check-circle-outline" size={64} color={COLORS.grayLight} />
+            <Text style={styles.emptyText}>Немає завдань</Text>
+            <TouchableOpacity 
+              style={styles.createButton}
+              onPress={handleAddPress}
+            >
+              <Text style={styles.createButtonText}>Створити завдання</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </ScrollView>
 
-      {/* Модальное окно с формой создания задачи */}
       <Modal
         visible={modalVisible}
         animationType="slide"
         transparent={true}
-        onRequestClose={() => setModalVisible(false)}
+        onRequestClose={handleFormCancel}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Новая задача</Text>
-              <TouchableOpacity onPress={() => setModalVisible(false)}>
-                <MaterialCommunityIcons name="close" size={24} color={COLORS.grayDark} />
-              </TouchableOpacity>
-            </View>
-            <TaskForm
-              onSubmit={handleFormSubmit}
-              onCancel={handleFormCancel}
-            />
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Нове завдання</Text>
+            <TaskForm onSubmit={handleFormSubmit} onCancel={handleFormCancel} />
           </View>
         </View>
       </Modal>
@@ -444,6 +462,47 @@ const styles = StyleSheet.create({
     fontSize: SIZES.large,
     fontWeight: 'bold',
     color: COLORS.primary,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyText: {
+    fontSize: SIZES.font,
+    color: COLORS.gray,
+    marginBottom: 16,
+  },
+  createButton: {
+    backgroundColor: COLORS.primary,
+    padding: 16,
+    borderRadius: 20,
+  },
+  createButtonText: {
+    fontSize: SIZES.font,
+    fontWeight: 'bold',
+    color: COLORS.white,
+  },
+  taskActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: 8,
+  },
+  taskAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 8,
+  },
+  taskActionText: {
+    fontSize: SIZES.font,
+    fontWeight: 'bold',
+    marginLeft: 4,
+  },
+  taskPoints: {
+    fontSize: SIZES.font,
+    fontWeight: 'bold',
+    color: COLORS.success,
+    marginLeft: 8,
   },
 });
 

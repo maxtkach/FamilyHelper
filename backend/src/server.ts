@@ -7,75 +7,77 @@ import taskRoutes from './routes/taskRoutes';
 import eventRoutes from './routes/eventRoutes';
 import budgetRoutes from './routes/budgetRoutes';
 
-// Load environment variables
+// Загрузка переменных окружения
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Настройка CORS для мобильного приложения
+// Налаштування CORS для мобільного додатку
 app.use(cors({
-  origin: '*', // Разрешить запросы с любых источников
+  origin: '*', // Дозволити запити з будь-яких джерел
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
-  credentials: true
+  credentials: true,
+  exposedHeaders: ['Authorization']
 }));
 
-// Middleware для логирования запросов
+// Middleware для логування запитів
 app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+  console.log('Headers:', req.headers);
   next();
 });
 
 app.use(express.json());
 
-// Базовый маршрут для проверки работы API
+// Базовий маршрут для перевірки роботи API
 app.get('/', (req, res) => {
-  res.json({ message: 'API работает' });
+  res.json({ message: 'API працює' });
 });
 
-// Использование маршрутов
+// Використання маршрутів
 app.use('/api/users', userRoutes);
 app.use('/api/tasks', taskRoutes);
 app.use('/api/events', eventRoutes);
 app.use('/api/budget', budgetRoutes);
 
-// Другие маршруты будут добавлены позже
+// Інші маршрути будуть додані пізніше
 // app.use('/api/families', familyRoutes);
 // app.use('/api/transactions', transactionRoutes);
 
-// Обработка ошибок
+// Обробка помилок
 const errorHandler = (err: Error, req: Request, res: Response, next: NextFunction) => {
-  console.error('Ошибка:', err);
+  console.error('Помилка:', err);
   
   if (res.headersSent) {
     return next(err);
   }
 
   res.status(500).json({
-    message: err.message || 'Внутренняя ошибка сервера',
+    message: err.message || 'Внутрішня помилка сервера',
     stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
   });
 };
 
-// Обработка 404
+// Обробка 404
 app.use((req: Request, res: Response) => {
-  res.status(404).json({ message: 'Маршрут не найден' });
+  res.status(404).json({ message: 'Маршрут не знайдено' });
 });
 
 app.use(errorHandler);
 
-// Подключение к MongoDB
+// Підключення до MongoDB
 mongoose
   .connect(process.env.MONGODB_URI as string)
   .then(() => {
-    console.log('Подключено к MongoDB');
+    console.log('Підключено до MongoDB');
     app.listen(PORT, () => {
-      console.log(`Сервер запущен на порту ${PORT}`);
+      console.log(`Сервер запущено на порту ${PORT}`);
     });
   })
   .catch((err) => {
-    console.error('Ошибка подключения к MongoDB:', err.message);
+    console.error('Помилка підключення до MongoDB:', err.message);
   });
 
 export default app; 

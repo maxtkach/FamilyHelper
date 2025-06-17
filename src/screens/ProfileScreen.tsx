@@ -10,12 +10,15 @@ import {
   Platform,
   Switch,
   Modal,
+  TextInput,
+  Image,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, SIZES, SHADOWS } from '../constants';
 import { useApp } from '../context/AppContext';
 import { UserRole } from '../types';
+import * as ImagePicker from 'expo-image-picker';
 
 const ProfileScreen: React.FC = () => {
   const { auth, logout, updateUserProfile } = useApp();
@@ -25,6 +28,11 @@ const ProfileScreen: React.FC = () => {
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [showRoleModal, setShowRoleModal] = useState(false);
   const [selectedRole, setSelectedRole] = useState<string>(user?.role || 'personal');
+  
+  // Новые состояния для изменения никнейма и аватарки
+  const [showNameModal, setShowNameModal] = useState(false);
+  const [newName, setNewName] = useState(user?.name || '');
+  const [avatarUri, setAvatarUri] = useState<string | null>(null);
 
   // Анимации
   const avatarScale = useRef(new Animated.Value(1)).current;
@@ -94,7 +102,89 @@ const ProfileScreen: React.FC = () => {
 
   const handleAvatarPress = () => {
     animateAvatar();
-    Alert.alert('Фото профиля', 'Здесь будет возможность изменить фото профиля');
+    Alert.alert(
+      'Фото профілю', 
+      'Оберіть дію',
+      [
+        { text: 'Скасувати', style: 'cancel' },
+        { text: 'Зробити фото', onPress: takePicture },
+        { text: 'Вибрати з галереї', onPress: pickImage },
+      ]
+    );
+  };
+
+  const pickImage = async () => {
+    try {
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      
+      if (!permissionResult.granted) {
+        Alert.alert('Потрібен дозвіл', 'Надайте доступ до фотогалереї для вибору фото');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.7,
+      });
+
+      if (!result.canceled) {
+        setAvatarUri(result.assets[0].uri);
+        // Здесь должен быть код для отправки фото на сервер
+        // uploadAvatar(result.assets[0].uri);
+      }
+    } catch (error) {
+      console.error('Помилка при виборі зображення:', error);
+      Alert.alert('Помилка', 'Не вдалося вибрати зображення');
+    }
+  };
+
+  const takePicture = async () => {
+    try {
+      const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
+      
+      if (!permissionResult.granted) {
+        Alert.alert('Потрібен дозвіл', 'Надайте доступ до камери для створення фото');
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.7,
+      });
+
+      if (!result.canceled) {
+        setAvatarUri(result.assets[0].uri);
+        // Здесь должен быть код для отправки фото на сервер
+        // uploadAvatar(result.assets[0].uri);
+      }
+    } catch (error) {
+      console.error('Помилка при створенні фото:', error);
+      Alert.alert('Помилка', 'Не вдалося створити фото');
+    }
+  };
+
+  const handleNameChange = () => {
+    setShowNameModal(true);
+    setNewName(user?.name || '');
+  };
+
+  const saveNewName = async () => {
+    if (!newName.trim()) {
+      Alert.alert('Помилка', 'Ім\'я не може бути порожнім');
+      return;
+    }
+
+    try {
+      await updateUserProfile({ name: newName.trim() });
+      setShowNameModal(false);
+      Alert.alert('Успіх', 'Ім\'я успішно оновлено');
+    } catch (error) {
+      console.error('Помилка при оновленні імені:', error);
+      Alert.alert('Помилка', 'Не вдалося оновити ім\'я');
+    }
   };
 
   const handleAchievementPress = (achievement: typeof achievements[0]) => {
@@ -104,12 +194,12 @@ const ProfileScreen: React.FC = () => {
 
   const handleLogout = () => {
     Alert.alert(
-      'Выход',
-      'Вы уверены, что хотите выйти?',
+      'Вихід',
+      'Ви впевнені, що хочете вийти?',
       [
-        { text: 'Отмена', style: 'cancel' },
+        { text: 'Скасувати', style: 'cancel' },
         { 
-          text: 'Выйти', 
+          text: 'Вийти', 
           style: 'destructive', 
           onPress: () => logout() 
         },
@@ -121,17 +211,17 @@ const ProfileScreen: React.FC = () => {
   const getRoleText = (role: string) => {
     switch (role) {
       case 'parent':
-        return 'Родитель';
+        return 'Батько/Мати';
       case 'child':
-        return 'Ребенок';
+        return 'Дитина';
       case 'personal':
-        return 'Личное использование';
+        return 'Особисте використання';
       case 'boyfriend':
-        return 'Парень';
+        return 'Хлопець';
       case 'girlfriend':
-        return 'Девушка';
+        return 'Дівчина';
       default:
-        return 'Пользователь';
+        return 'Користувач';
     }
   };
 
@@ -157,33 +247,33 @@ const ProfileScreen: React.FC = () => {
   const roles: { value: string; label: string; icon: string; description: string }[] = [
     { 
       value: 'parent', 
-      label: 'Родитель', 
+      label: 'Батько/Мати', 
       icon: 'account-child',
-      description: 'Для родителей, которые хотят организовать семейные задачи и расходы'
+      description: 'Для батьків, які хочуть організувати сімейні завдання та витрати'
     },
     { 
       value: 'child', 
-      label: 'Ребенок', 
+      label: 'Дитина', 
       icon: 'human-child',
-      description: 'Для детей, которые хотят участвовать в семейных задачах и зарабатывать баллы'
+      description: 'Для дітей, які хочуть брати участь у сімейних завданнях і заробляти бали'
     },
     { 
       value: 'personal', 
-      label: 'Личное использование', 
+      label: 'Особисте використання', 
       icon: 'account',
-      description: 'Для индивидуального планирования и управления личными задачами'
+      description: 'Для індивідуального планування та управління особистими завданнями'
     },
     { 
       value: 'boyfriend', 
-      label: 'Парень', 
+      label: 'Хлопець', 
       icon: 'human-male',
-      description: 'Для использования приложения в паре (мужская часть)'
+      description: 'Для використання додатку в парі (чоловіча частина)'
     },
     { 
       value: 'girlfriend', 
-      label: 'Девушка', 
+      label: 'Дівчина', 
       icon: 'human-female',
-      description: 'Для использования приложения в паре (женская часть)'
+      description: 'Для використання додатку в парі (жіноча частина)'
     },
   ];
 
@@ -191,32 +281,32 @@ const ProfileScreen: React.FC = () => {
   const handleRoleChange = async (role: string) => {
     try {
       if (role === user?.role) {
-        Alert.alert('Информация', 'Выбрана текущая роль. Изменения не требуются.');
+        Alert.alert('Інформація', 'Обрана поточна роль. Зміни не потрібні.');
         setShowRoleModal(false);
         return;
       }
       
       setSelectedRole(role);
-      console.log('Меняем роль на:', role, 'текущая роль:', user?.role);
+      console.log('Змінюємо роль на:', role, 'поточна роль:', user?.role);
       
       // Запрашиваем подтверждение
       Alert.alert(
-        'Изменение роли',
-        `Вы уверены, что хотите изменить свою роль с "${getRoleText(user?.role || '')}" на "${getRoleText(role)}"?`,
+        'Зміна ролі',
+        `Ви впевнені, що хочете змінити свою роль з "${getRoleText(user?.role || '')}" на "${getRoleText(role)}"?`,
         [
           {
-            text: 'Отмена',
+            text: 'Скасувати',
             style: 'cancel'
           },
           {
-            text: 'Изменить',
+            text: 'Змінити',
             onPress: async () => {
               try {
                 const result = await updateUserProfile({ role: role as UserRole });
-                console.log('Результат обновления профиля:', result);
+                console.log('Результат оновлення профілю:', result);
               } catch (error) {
-                console.error('Ошибка при изменении роли:', error);
-                Alert.alert('Ошибка', 'Не удалось изменить роль. Пожалуйста, попробуйте снова.');
+                console.error('Помилка при зміні ролі:', error);
+                Alert.alert('Помилка', 'Не вдалося змінити роль. Будь ласка, спробуйте знову.');
               } finally {
                 setShowRoleModal(false);
               }
@@ -225,8 +315,8 @@ const ProfileScreen: React.FC = () => {
         ]
       );
     } catch (error) {
-      console.error('Ошибка при подготовке изменения роли:', error);
-      Alert.alert('Ошибка', 'Произошла ошибка. Пожалуйста, попробуйте снова.');
+      console.error('Помилка при підготовці зміни ролі:', error);
+      Alert.alert('Помилка', 'Сталася помилка. Будь ласка, спробуйте знову.');
     }
   };
 
@@ -262,14 +352,26 @@ const ProfileScreen: React.FC = () => {
               ]}
             >
               <View style={styles.avatar}>
-                <MaterialCommunityIcons name="account" size={60} color={COLORS.primary} />
+                {avatarUri ? (
+                  <Image
+                    source={{ uri: avatarUri }}
+                    style={styles.avatarImage}
+                  />
+                ) : (
+                  <MaterialCommunityIcons name="account" size={60} color={COLORS.primary} />
+                )}
               </View>
               <View style={styles.editIcon}>
-                <MaterialCommunityIcons name="pencil" size={16} color={COLORS.white} />
+                <MaterialCommunityIcons name="camera" size={16} color={COLORS.white} />
               </View>
             </Animated.View>
           </TouchableOpacity>
-          <Text style={styles.userName}>{user?.name || 'Пользователь'}</Text>
+          <TouchableOpacity onPress={handleNameChange}>
+            <View style={styles.nameContainer}>
+              <Text style={styles.userName}>{user?.name || 'Користувач'}</Text>
+              <MaterialCommunityIcons name="pencil" size={16} color={COLORS.primary} />
+            </View>
+          </TouchableOpacity>
           <Text style={styles.userRole}>{getRoleText(user?.role || '')}</Text>
         </View>
 
@@ -331,7 +433,7 @@ const ProfileScreen: React.FC = () => {
             <View style={styles.settingItem}>
               <View style={styles.settingInfo}>
                 <MaterialCommunityIcons name="bell" size={24} color={COLORS.primary} />
-                <Text style={styles.settingText}>Уведомления</Text>
+                <Text style={styles.settingText}>Сповіщення</Text>
               </View>
               <Switch
                 value={notifications}
@@ -374,27 +476,27 @@ const ProfileScreen: React.FC = () => {
                   size={24} 
                   color={COLORS.primary} 
                 />
-                <Text style={styles.settingText}>Изменить роль</Text>
+                <Text style={styles.settingText}>Змінити роль</Text>
               </View>
               <MaterialCommunityIcons name="chevron-right" size={24} color={COLORS.gray} />
             </TouchableOpacity>
             <TouchableOpacity 
               style={styles.settingItem}
-              onPress={() => Alert.alert('Язык', 'Здесь будет выбор языка')}
+              onPress={() => Alert.alert('Мова', 'Тут буде вибір мови')}
             >
               <View style={styles.settingInfo}>
                 <MaterialCommunityIcons name="translate" size={24} color={COLORS.primary} />
-                <Text style={styles.settingText}>Язык</Text>
+                <Text style={styles.settingText}>Мова</Text>
               </View>
               <MaterialCommunityIcons name="chevron-right" size={24} color={COLORS.gray} />
             </TouchableOpacity>
             <TouchableOpacity 
               style={styles.settingItem}
-              onPress={() => Alert.alert('О приложении', 'Версия 1.0.0')}
+              onPress={() => Alert.alert('Про додаток', 'Версія 1.0.0')}
             >
               <View style={styles.settingInfo}>
                 <MaterialCommunityIcons name="information" size={24} color={COLORS.primary} />
-                <Text style={styles.settingText}>О приложении</Text>
+                <Text style={styles.settingText}>Про додаток</Text>
               </View>
               <MaterialCommunityIcons name="chevron-right" size={24} color={COLORS.gray} />
             </TouchableOpacity>
@@ -407,7 +509,7 @@ const ProfileScreen: React.FC = () => {
         onPress={handleLogout}
       >
         <MaterialCommunityIcons name="logout" size={20} color={COLORS.white} />
-        <Text style={styles.logoutButtonText}>Выйти</Text>
+        <Text style={styles.logoutButtonText}>Вийти</Text>
       </TouchableOpacity>
 
       {/* Модальное окно для выбора роли */}
@@ -420,7 +522,7 @@ const ProfileScreen: React.FC = () => {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Изменить роль</Text>
+              <Text style={styles.modalTitle}>Змінити роль</Text>
               <TouchableOpacity onPress={() => setShowRoleModal(false)}>
                 <MaterialCommunityIcons name="close" size={24} color={COLORS.grayDark} />
               </TouchableOpacity>
@@ -428,7 +530,7 @@ const ProfileScreen: React.FC = () => {
             
             <ScrollView style={styles.modalContent}>
               <Text style={styles.modalDescription}>
-                Выберите роль, которая лучше всего соответствует вашим целям использования приложения:
+                Оберіть роль, яка найкраще відповідає вашим цілям використання додатку:
               </Text>
               
               {roles.map((role) => (
@@ -470,9 +572,55 @@ const ProfileScreen: React.FC = () => {
                 style={styles.saveButton}
                 onPress={() => handleRoleChange(selectedRole)}
               >
-                <Text style={styles.saveButtonText}>Сохранить</Text>
+                <Text style={styles.saveButtonText}>Зберегти</Text>
               </TouchableOpacity>
             </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Модальное окно для изменения имени */}
+      <Modal
+        visible={showNameModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowNameModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContainer, styles.nameModalContainer]}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Змінити ім'я</Text>
+              <TouchableOpacity onPress={() => setShowNameModal(false)}>
+                <MaterialCommunityIcons name="close" size={24} color={COLORS.grayDark} />
+              </TouchableOpacity>
+            </View>
+            
+            <View style={styles.nameInputContainer}>
+              <Text style={styles.nameInputLabel}>Введіть нове ім'я:</Text>
+              <TextInput
+                style={styles.nameInput}
+                value={newName}
+                onChangeText={setNewName}
+                placeholder="Ваше ім'я"
+                autoFocus
+                maxLength={30}
+              />
+              
+              <View style={styles.nameModalButtons}>
+                <TouchableOpacity 
+                  style={[styles.nameModalButton, styles.nameModalCancelButton]}
+                  onPress={() => setShowNameModal(false)}
+                >
+                  <Text style={styles.nameModalCancelText}>Скасувати</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={[styles.nameModalButton, styles.nameModalSaveButton]}
+                  onPress={saveNewName}
+                >
+                  <Text style={styles.nameModalSaveText}>Зберегти</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
           </View>
         </View>
       </Modal>
@@ -498,18 +646,12 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 30,
     ...SHADOWS.medium,
   },
-  title: {
-    fontSize: SIZES.extraLarge,
-    fontWeight: 'bold',
-    color: COLORS.white,
-  },
-  profileSection: {
+  userContainer: {
     alignItems: 'center',
-    paddingVertical: 20,
   },
   avatarContainer: {
     position: 'relative',
-    marginBottom: 16,
+    marginBottom: 10,
   },
   avatar: {
     width: 100,
@@ -518,93 +660,120 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.light,
     justifyContent: 'center',
     alignItems: 'center',
-    ...SHADOWS.medium,
+    ...SHADOWS.light,
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 50,
   },
   editIcon: {
     position: 'absolute',
     bottom: 0,
     right: 0,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
     backgroundColor: COLORS.primary,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     justifyContent: 'center',
     alignItems: 'center',
     ...SHADOWS.light,
+  },
+  nameContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 5,
   },
   userName: {
     fontSize: SIZES.large,
     fontWeight: 'bold',
     color: COLORS.dark,
-    marginBottom: 4,
+    marginRight: 8,
   },
   userRole: {
     fontSize: SIZES.font,
     color: COLORS.gray,
   },
+  roleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 15,
+  },
+  roleText: {
+    color: COLORS.white,
+    marginLeft: 5,
+    fontSize: SIZES.small,
+  },
+  profileSection: {
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.light,
+  },
   statsSection: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    padding: 20,
-    margin: 16,
-    backgroundColor: COLORS.white,
-    borderRadius: 16,
-    ...SHADOWS.medium,
+    justifyContent: 'space-around',
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.light,
   },
   statItem: {
-    flex: 1,
     alignItems: 'center',
   },
   statValue: {
-    fontSize: SIZES.large,
+    fontSize: SIZES.extraLarge,
     fontWeight: 'bold',
     color: COLORS.primary,
-    marginBottom: 4,
   },
   statLabel: {
-    fontSize: SIZES.small,
+    fontSize: SIZES.font,
     color: COLORS.gray,
   },
   statDivider: {
     width: 1,
-    backgroundColor: COLORS.grayLight,
-    marginHorizontal: 16,
+    height: 40,
+    backgroundColor: COLORS.light,
   },
   section: {
-    padding: 16,
+    padding: 15,
   },
   sectionTitle: {
     fontSize: SIZES.large,
     fontWeight: 'bold',
+    marginBottom: 15,
     color: COLORS.dark,
-    marginBottom: 16,
   },
   achievementsContainer: {
-    paddingRight: 16,
+    paddingBottom: 10,
   },
   achievementCard: {
-    width: 150,
-    padding: 16,
-    marginRight: 12,
     backgroundColor: COLORS.white,
-    borderRadius: 16,
+    borderRadius: 15,
+    padding: 15,
+    marginRight: 15,
+    width: 150,
     alignItems: 'center',
     ...SHADOWS.light,
   },
   achievementTitle: {
     fontSize: SIZES.font,
-    fontWeight: '500',
+    fontWeight: 'bold',
     color: COLORS.dark,
-    marginVertical: 8,
+    marginTop: 10,
+    marginBottom: 15,
     textAlign: 'center',
   },
   progressContainer: {
     width: '100%',
-    height: 4,
-    backgroundColor: COLORS.grayLight,
-    borderRadius: 2,
-    marginVertical: 8,
+    height: 6,
+    backgroundColor: COLORS.light,
+    borderRadius: 3,
     overflow: 'hidden',
+    marginBottom: 5,
   },
   progressBar: {
     height: '100%',
@@ -616,100 +785,85 @@ const styles = StyleSheet.create({
   },
   settingsContainer: {
     backgroundColor: COLORS.white,
-    borderRadius: 16,
+    borderRadius: 15,
     ...SHADOWS.light,
   },
   settingItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
+    padding: 15,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.grayLight,
+    borderBottomColor: COLORS.light,
   },
   settingInfo: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   settingText: {
-    fontSize: SIZES.medium,
+    fontSize: SIZES.font,
     color: COLORS.dark,
-    marginLeft: 12,
+    marginLeft: 15,
   },
   logoutButton: {
-    backgroundColor: COLORS.danger,
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 8,
-    marginHorizontal: 16,
-    marginBottom: 16,
+    alignItems: 'center',
+    backgroundColor: COLORS.danger,
+    padding: 15,
+    borderRadius: 10,
+    margin: 15,
     ...SHADOWS.medium,
   },
   logoutButtonText: {
-    marginLeft: 8,
     color: COLORS.white,
-    fontSize: SIZES.medium,
-    fontWeight: 'bold',
-  },
-  userContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 20,
-  },
-  roleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginLeft: 8,
-  },
-  roleText: {
     fontSize: SIZES.font,
-    color: COLORS.white,
-    marginLeft: 4,
+    fontWeight: 'bold',
+    marginLeft: 10,
   },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   modalContainer: {
     backgroundColor: COLORS.white,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingBottom: 20,
-    height: '80%',
+    borderRadius: 20,
+    width: '90%',
+    maxHeight: '80%',
+    ...SHADOWS.medium,
+  },
+  nameModalContainer: {
+    height: 'auto',
+    maxHeight: '50%',
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
+    padding: 15,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.light,
   },
   modalTitle: {
     fontSize: SIZES.large,
     fontWeight: 'bold',
-    color: COLORS.primary,
+    color: COLORS.dark,
   },
   modalContent: {
-    padding: 16,
+    padding: 15,
   },
   modalDescription: {
     fontSize: SIZES.font,
-    color: COLORS.grayDark,
-    marginBottom: 16,
-    textAlign: 'center',
+    color: COLORS.gray,
+    marginBottom: 15,
   },
   roleOption: {
-    backgroundColor: COLORS.white,
-    borderWidth: 1,
-    borderColor: COLORS.primary,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
+    backgroundColor: COLORS.light,
+    borderRadius: 10,
+    padding: 15,
+    marginBottom: 10,
   },
   roleOptionSelected: {
     backgroundColor: COLORS.primary,
@@ -717,36 +871,77 @@ const styles = StyleSheet.create({
   roleHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 5,
   },
   roleOptionTitle: {
     fontSize: SIZES.medium,
     fontWeight: 'bold',
-    color: COLORS.primary,
-    marginLeft: 12,
+    color: COLORS.dark,
+    marginLeft: 10,
   },
   roleOptionTitleSelected: {
     color: COLORS.white,
   },
   roleOptionDescription: {
-    fontSize: SIZES.small,
-    color: COLORS.grayDark,
-    marginLeft: 40,
+    fontSize: SIZES.font,
+    color: COLORS.gray,
   },
   roleOptionDescriptionSelected: {
-    color: COLORS.light,
+    color: COLORS.white,
   },
   saveButton: {
     backgroundColor: COLORS.primary,
-    borderRadius: 8,
-    padding: 16,
+    borderRadius: 10,
+    padding: 15,
     alignItems: 'center',
-    marginTop: 16,
-    marginBottom: 24,
+    marginTop: 15,
   },
   saveButtonText: {
     color: COLORS.white,
-    fontSize: SIZES.medium,
+    fontSize: SIZES.font,
+    fontWeight: 'bold',
+  },
+  nameInputContainer: {
+    padding: 15,
+  },
+  nameInputLabel: {
+    fontSize: SIZES.font,
+    color: COLORS.dark,
+    marginBottom: 10,
+  },
+  nameInput: {
+    backgroundColor: COLORS.light,
+    borderRadius: 10,
+    padding: 15,
+    fontSize: SIZES.font,
+    marginBottom: 20,
+  },
+  nameModalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  nameModalButton: {
+    flex: 1,
+    padding: 15,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  nameModalCancelButton: {
+    backgroundColor: COLORS.light,
+    marginRight: 10,
+  },
+  nameModalSaveButton: {
+    backgroundColor: COLORS.primary,
+    marginLeft: 10,
+  },
+  nameModalCancelText: {
+    color: COLORS.dark,
+    fontSize: SIZES.font,
+    fontWeight: 'bold',
+  },
+  nameModalSaveText: {
+    color: COLORS.white,
+    fontSize: SIZES.font,
     fontWeight: 'bold',
   },
 });

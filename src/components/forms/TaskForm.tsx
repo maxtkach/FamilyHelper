@@ -36,7 +36,7 @@ const TaskForm: React.FC<TaskFormProps> = ({ onSubmit, onCancel, initialValues }
     const newErrors = { title: '' };
 
     if (!title.trim()) {
-      newErrors.title = 'Название задачи обязательно';
+      newErrors.title = 'Назва завдання обов\'язкова';
       isValid = false;
     }
 
@@ -65,30 +65,30 @@ const TaskForm: React.FC<TaskFormProps> = ({ onSubmit, onCancel, initialValues }
   };
 
   const formatDate = (date: Date) => {
-    return date.toLocaleDateString();
+    return date.toLocaleDateString('uk-UA');
   };
 
   return (
     <ScrollView style={styles.container}>
       <View style={styles.formGroup}>
-        <Text style={styles.label}>Название задачи*</Text>
+        <Text style={styles.label}>Назва завдання*</Text>
         <TextInput
           style={[styles.input, errors.title ? styles.inputError : null]}
           value={title}
           onChangeText={setTitle}
-          placeholder="Введите название задачи"
+          placeholder="Введіть назву завдання"
           placeholderTextColor={COLORS.gray}
         />
         {errors.title ? <Text style={styles.errorText}>{errors.title}</Text> : null}
       </View>
 
       <View style={styles.formGroup}>
-        <Text style={styles.label}>Описание</Text>
+        <Text style={styles.label}>Опис</Text>
         <TextInput
           style={[styles.input, styles.textArea]}
           value={description}
           onChangeText={setDescription}
-          placeholder="Введите описание задачи"
+          placeholder="Введіть опис завдання"
           placeholderTextColor={COLORS.gray}
           multiline
           numberOfLines={4}
@@ -108,13 +108,13 @@ const TaskForm: React.FC<TaskFormProps> = ({ onSubmit, onCancel, initialValues }
               ]} 
             />
           </TouchableOpacity>
-          <Text style={styles.checkboxLabel}>Установить срок выполнения</Text>
+          <Text style={styles.checkboxLabel}>Встановити термін виконання</Text>
         </View>
       </View>
 
       {hasDeadline && (
         <View style={styles.formGroup}>
-          <Text style={styles.label}>Срок выполнения</Text>
+          <Text style={styles.label}>Термін виконання</Text>
           <TouchableOpacity 
             style={styles.datePickerButton}
             onPress={() => setShowDatePicker(true)}
@@ -139,13 +139,13 @@ const TaskForm: React.FC<TaskFormProps> = ({ onSubmit, onCancel, initialValues }
           style={[styles.button, styles.cancelButton]}
           onPress={onCancel}
         >
-          <Text style={styles.cancelButtonText}>Отмена</Text>
+          <Text style={styles.cancelButtonText}>Скасувати</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.button, styles.submitButton]}
           onPress={handleSubmit}
         >
-          <Text style={styles.submitButtonText}>Сохранить</Text>
+          <Text style={styles.submitButtonText}>Зберегти</Text>
         </TouchableOpacity>
       </View>
     </ScrollView>

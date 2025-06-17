@@ -18,7 +18,7 @@ const SERVER_PORT = '5000';
 // 2. Запустите backend: cd backend && npm start
 // 3. Запустите в другом терминале: ngrok http 5000
 // 4. Скопируйте URL в переменную NGROK_URL ниже
-const NGROK_URL = 'https://YOUR-NGROK-URL.ngrok-free.app'; // Замените на ваш ngrok URL
+const NGROK_URL = 'https://8baf-109-200-235-234.ngrok-free.app'; // Замените на ваш ngrok URL
 
 // Выбор URL API в зависимости от платформы
 const getApiUrl = () => {
@@ -27,15 +27,6 @@ const getApiUrl = () => {
 
   if (useNgrok) {
     // Проверка, что NGROK_URL обновлен
-    if (NGROK_URL.includes('YOUR-NGROK-URL')) {
-      console.warn('⚠️ ВНИМАНИЕ: Вам нужно заменить NGROK_URL на ваш актуальный URL');
-      Alert.alert('Настройка соединения', 
-        'Для подключения к серверу вам нужно:\n' +
-        '1. Запустить backend: cd backend && npm start\n' +
-        '2. Запустить ngrok: ngrok http 5000\n' +
-        '3. Заменить URL в файле src/context/AppContext.tsx'
-      );
-    }
     console.log('Используем Ngrok:', NGROK_URL);
     return `${NGROK_URL}/api`;
   }
@@ -509,11 +500,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
 
       // Обновляем задачу в состоянии
-      setTasks(prevTasks =>
-        prevTasks.map(task =>
-          task.id === taskId ? { ...task, ...updates } : task
-        )
-      );
+    setTasks(prevTasks =>
+      prevTasks.map(task =>
+        task.id === taskId ? { ...task, ...updates } : task
+      )
+    );
 
       return data;
     } catch (error) {
@@ -556,7 +547,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       // Сначала обновляем локальное состояние
       const newBudget = await new Promise<BudgetInfo>((resolve) => {
-        setBudget(prev => {
+    setBudget(prev => {
           const newBudget = { ...prev };
           
           if (updates.totalBudget !== undefined) {
@@ -567,7 +558,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           
           if (updates.allocatedBudget !== undefined) {
             newBudget.allocatedBudget = updates.allocatedBudget;
-            // Пересчитываем доступный бюджет
+      // Пересчитываем доступный бюджет
             newBudget.availableBudget = newBudget.totalBudget - updates.allocatedBudget;
           }
           
@@ -1122,13 +1113,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     register,
     logout,
     updateUserProfile,
-    tasks,
-    addTask,
-    updateTask,
-    deleteTask,
-    budget,
-    updateBudget,
-    allocateTaskBudget,
+        tasks,
+        addTask,
+        updateTask,
+        deleteTask,
+        budget,
+        updateBudget,
+        allocateTaskBudget,
     addBudgetCategory,
     updateBudgetCategory,
     deleteBudgetCategory,

@@ -17,7 +17,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 
 const HomeScreen: React.FC = () => {
-  const { tasks, events, getEvents } = useApp();
+  const { tasks, events, getEvents, auth } = useApp();
   const [completedTasks, setCompletedTasks] = useState<string[]>([]);
   const [expandedTask, setExpandedTask] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -323,25 +323,29 @@ const HomeScreen: React.FC = () => {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Статистика сім'ї</Text>
+          <Text style={styles.sectionTitle}>Статистика користувача</Text>
           <TouchableOpacity 
             style={styles.statsCard}
-            onPress={() => Alert.alert('Статистика', 'Здесь будет подробная статистика')}
+            onPress={() => Alert.alert('Статистика', 'Тут буде детальна статистика')}
             activeOpacity={0.7}
           >
             <View style={styles.statsRow}>
               <View style={styles.statItem}>
-                <Text style={styles.statValue}>12</Text>
-                <Text style={styles.statLabel}>Задач</Text>
+                <Text style={styles.statValue}>
+                  {tasks.filter(t => t.assignedTo && t.assignedTo.includes(auth.user?.id || '')).length}
+                </Text>
+                <Text style={styles.statLabel}>Завдань</Text>
               </View>
               <View style={styles.statDivider} />
               <View style={styles.statItem}>
-                <Text style={styles.statValue}>5</Text>
-                <Text style={styles.statLabel}>Подій</Text>
+                <Text style={styles.statValue}>
+                  {tasks.filter(t => t.assignedTo && t.assignedTo.includes(auth.user?.id || '') && t.completed).length}
+                </Text>
+                <Text style={styles.statLabel}>Виконано</Text>
               </View>
               <View style={styles.statDivider} />
               <View style={styles.statItem}>
-                <Text style={styles.statValue}>230</Text>
+                <Text style={styles.statValue}>{auth.user?.points || 0}</Text>
                 <Text style={styles.statLabel}>Очків</Text>
               </View>
             </View>
