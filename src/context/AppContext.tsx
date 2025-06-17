@@ -9,7 +9,7 @@ import { Platform, Alert } from 'react-native';
 
 // Локальный IP-адрес сервера - заменить на IP вашего компьютера в локальной сети
 // Выполните 'ipconfig' в Windows или 'ifconfig' в macOS/Linux, чтобы узнать IP
-const LOCAL_IP = '192.168.0.104'; // Замените на ваш локальный IP
+const LOCAL_IP = '192.168.0.108'; // Замените на ваш локальный IP
 const SERVER_PORT = '5000';
 
 // Использование Ngrok для разработки (если локальный IP не работает)
@@ -18,7 +18,7 @@ const SERVER_PORT = '5000';
 // 2. Запустите backend: cd backend && npm start
 // 3. Запустите в другом терминале: ngrok http 5000
 // 4. Скопируйте URL в переменную NGROK_URL ниже
-const NGROK_URL = 'https://8baf-109-200-235-234.ngrok-free.app'; // Замените на ваш ngrok URL
+const NGROK_URL = 'https://c18f-109-200-235-234.ngrok-free.app'; // Замените на ваш ngrok URL
 
 // Выбор URL API в зависимости от платформы
 const getApiUrl = () => {
